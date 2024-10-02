@@ -1,0 +1,65 @@
+:root {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+}
+
+/* Base styles (global) */
+.container {
+    text-align: center;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+button {
+    padding: 10px;
+    width: 15rem;
+    color: white;
+    font-weight: bold;
+    border: none;
+    cursor: pointer;
+}
+
+footer {
+    margin: 2rem;
+    text-align: center;
+}
+
+/* Home page styles */
+.home-page-container {
+    padding: 20px;
+}
+
+.home-page-container h2 {
+    font-size: 1.5rem;
+    font-weight: bold;
+}
+
+.freewifi-logo {
+    width: 23rem;
+    height: auto;
+}
+
+.company-logos {
+    display: flex;
+    justify-content: space-around;
+    margin: 3rem 0;
+    box-sizing: border-box;
+}
+
+.dict-logo {
+    width: 8rem;
+    height: 4rem;
+}
+
+.apollotech-logo {
+    width: 10rem;
+    height: 3.5rem;
+}
+
+.access-btn {
+    background-color: #00CEC8;
+    font-size: 13px;
+}
