@@ -1,12 +1,19 @@
-:root {
+body {
     display: flex;
     justify-content: center;
     align-items: center;
     height: 100vh;
+    margin: 0;
 }
 
-/* Base styles (global) */
 .container {
+    display: flex;
+    flex-direction: column;
+    width: 80vw;
+    max-width: 50vw;
+    height: 90vh;
+    margin: 0 auto;
+    padding: 10px;
     text-align: center;
     border: 1px solid #ccc;
     border-radius: 5px;
@@ -15,7 +22,8 @@
 
 button {
     padding: 10px;
-    width: 15rem;
+    width: 80%;
+    max-width: 15rem;
     color: white;
     font-weight: bold;
     border: none;
@@ -23,42 +31,79 @@ button {
 }
 
 footer {
-    margin: 2rem;
+    margin-top: 3rem;
+    margin-bottom: 0;
     text-align: center;
 }
 
-.home-page-container {
-    padding: 20px;
+.homepage-container {
+    flex-grow: 1;
 }
 
-.home-page-container h2 {
+.homepage-container h2 {
     font-size: 1.5rem;
     font-weight: bold;
 }
 
 .freewifi-logo {
-    width: 23rem;
+    width: 100%;
+    max-width: 23rem;
     height: auto;
 }
 
 .company-logos {
     display: flex;
-    justify-content: space-around;
+    justify-content: space-evenly;
     margin: 3rem 0;
-    box-sizing: border-box;
 }
 
 .dict-logo {
-    width: 8rem;
-    height: 4rem;
+    width: auto;
+    max-width: 10rem;
+    height: auto;
+    max-height: 3.5rem;
 }
 
 .apollotech-logo {
-    width: 10rem;
-    height: 3.5rem;
+    width: auto;
+    max-width: 10rem;
+    height: auto;
+    max-height: 3.5rem;
 }
 
 .access-btn {
     background-color: #00CEC8;
     font-size: 13px;
+}
+
+@media (min-width: 768px) {
+    .container {
+        width: 60vw;
+    }
+}
+
+@media (min-width: 1024px) {
+    .container {
+        width: 50vw;
+    }
+    .homepage-container h2 {
+        font-size: 2rem;
+    }
+    .freewifi-logo {
+        width: 23rem;
+    }
+}
+
+@media (max-width: 600px) {
+    .container {
+        width: 90vw;
+    }
+    .company-logos {
+        flex-direction: column;
+        align-items: center;
+    }
+    .dict-logo, .apollotech-logo {
+        width: 60%;
+        margin-bottom: 1rem;
+    }
 }
