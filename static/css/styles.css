@@ -71,9 +71,19 @@ footer {
     max-height: 3.5rem;
 }
 
-.access-btn {
+.enter-btn {
     background-color: #00CEC8;
     font-size: 13px;
+}
+
+.next-btn {
+    margin: 0 13vw;
+}
+
+.apollo-logo {
+    margin-left: 11vw;
+    width: 12vw;
+    height: auto;
 }
 
 @media (min-width: 768px) {
