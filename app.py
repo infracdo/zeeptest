@@ -4,8 +4,10 @@ import datetime
 from datetime import timedelta
 
 app = Flask(__name__)
+# Import configurations from .env file
+app.config.from_object("config")
+
 csrf = CSRFProtect(app)
-app.secret_key = b'c2VjcmV0X2tleV9leGFtcGxl'
 
 # Temporary CSRF token for authentication
 STATIC_TOKEN = "3b1f1e2f55c34c5b9f8c4e1a7b83e4d0"
@@ -240,4 +242,4 @@ def logout():
     return redirect(url_for('login'))
 
 if __name__ == '__main__':
-    app.run(host="0.0.0.0", port=8080, debug=True)
+    app.run(host="0.0.0.0", port=8080)
