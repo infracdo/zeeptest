@@ -60,6 +60,12 @@
             <td>{{ monthly_used }}</td>
             <td>{{ monthly_remaining }}</td>
           </tr>
+          <tr>
+            <td>Time</td>
+            <td>{{ time_limit }}</td>
+            <td>{{time_used}}</td>
+            <td id="remaining_time">{{time_remaining}}</td>
+          </tr>
         </tbody>
       </table>
       <br />
@@ -90,5 +96,22 @@
       $(function() {
         $(".rslides").responsiveSlides();
       });
+
+    //   function updateRemainingTime() {
+    //     fetch('/remaining_time')
+    //     .then(response => response.json())
+    //     .then(data => {
+    //         let minutes = Math.floor(data.remaining_time_in_seconds / 60);
+    //         let seconds = Math.floor(data.remaining_time_in_seconds % 60);
+    //         if (seconds < 10 && seconds >= 0) {
+    //             seconds = "0" + seconds;
+    //         }
+
+    //         let remainingTimeElement = document.getElementById("remaining_time");
+    //         remainingTimeElement.innerText = `${minutes}:${seconds}`;
+    //         document.getElementById("remaining_time").innerText = minutes + ":" + seconds;
+    //     })
+    // }
+    // setInterval(updateRemainingTime, 1000);
   </script>
 </html>
