@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+  <head>
+      {% if session.get('title') %}
+      <title>{{ session['title'] }}</title>
+      {% endif %}
+    <link
+      rel="stylesheet"
+      href="{{url_for('static', filename='styles.css')}}"
+    />
+    <link
+      rel="stylesheet"
+      href="{{url_for('static', filename='tables.min.css')}}"
+    />
+  </head>
+  <body>
+    <div class="home-header"></div>
+    <section class="logo-row">
+      <img
+        src="{{url_for('static', filename='apollo.png')}}"
+        class="portal-logo"
+      />
+    </section>
+    <br />
+    <div class="content-container">
+      <div class="top-bar"></div>
+      <section class="welcome">
+        <br />
+        <h2>{{ message }}</h2>
+      </section>
+      {% if verifyLink %}
+      <section
+        style="display: flex; flex-direction: row; justify-content: center; margin-bottom: 2vh;"
+      >
+        <a href="{{ verifyLink }}"
+          ><button class="enter-button portal-next red"><strong>{{ verifyText }}</strong></button></a
+        >
+      </section>
+      {% endif %}
+      {% if hideReturnToHome %}
+      <p></p>
+      {% else %}
+      <section
+        style="display: flex; flex-direction: row; justify-content: center; margin-bottom: 2vh;"
+      >
+        <a href="{{ returnLink }}"
+          >
+          {% if return_text %}
+          <button class="enter-button portal-next">{{ return_text }}</button>
+          {% else %}
+          <button class="enter-button portal-next">Back</button>
+          {% endif %}
+          </a>
+      </section>
+      {% endif %}
+      <br /><br />
+      <div class="copyright-footer">
+        <p>Apollo Technologies, Inc. &copy; <script type="text/javascript">document.write(new Date().getFullYear());</script> | <a href="https://rt.apolloglobal.net" target="_blank">Contact Us</a></p>
+      </div>
+      <br />
+    </div>
+  </body>
+</html>

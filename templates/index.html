@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Access Page{% endblock %}
+
+{% block content %}
+
+<div class="homepage-container">
+    <img src="/static/images/free_wifi.png" alt="Free wifi for all logo" class="freewifi-logo">
+    <h2>A PROJECT OF</h2>
+
+    <div class="company-logos">
+        <img src="/static/images/dict2.png" alt="DICT logo" class="dict-logo">
+        <img src="/static/images/apollo.png" alt="ApolloTech logo" class="apollotech-logo">
+    </div>
+
+    <a href="{{ url_for('access') }}">
+        <button class="enter-btn">ENTER</button>
+    </a>
+
+    <footer>
+        Apollo Technologies, Inc. © 2024 | <a href="">Contact Us</a>
+    </footer>
+</div>
+
+{% endblock %}
+
+
+

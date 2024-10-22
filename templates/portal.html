@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+  <head>
+      {% if session.get('title') %}
+      <title>{{ session['title'] }}</title>
+      {% endif %}
+    <link
+      rel="stylesheet"
+      href="/static/css/styles.css"
+    />
+    <link
+      rel="stylesheet"
+      href="/static/css/tables.min.css"
+    />
+    <script src="/static/javascript/jquery-3.3.1.min.js"></script>
+    <script src="/static/javascript/responsiveslides.min.js"></script>
+  </head>
+  <body>
+    <div class="home-header"></div>
+    <div class="logo-row">
+      
+    </div>
+    <br />
+    <div class="content-container">
+      <img
+        src="/static/images/apollo.png"
+        class="apollo-logo"
+      />
+      <section class="welcome">
+        <br />
+        <h2>Welcome</h2>
+        <p>
+          Username: <b>{{ session["uname"] }}</b>
+        </p>
+        <p>
+          IP Address: <b>{{ session["ip"] }}</b>
+        </p>
+      </section>
+      <table class="pure-table pure-table-horizontal">
+        <thead>
+            <tr>
+            <th>Bucket</th>
+            <th>Total</th>
+            <th>Used</th>
+            <th>Remaining</th>   
+            
+          </tr>
+        </thead>
+
+        <tbody>
+          <tr>
+            <td>{{ display_type }} Daily</td>
+            <td>{{ daily_limit }}</td>
+            <td>{{ daily_used }}</td>
+            <td>{{ daily_remaining }}</td>
+          </tr>
+          <tr>
+            <td>{{ display_type }} Monthly</td>
+            <td>{{ monthly_limit }}</td>
+            <td>{{ monthly_used }}</td>
+            <td>{{ monthly_remaining }}</td>
+          </tr>
+        </tbody>
+      </table>
+      <br />
+      <a href="{{ path }}">
+        <button class="enter-btn next-btn">Next</button>
+        </a>
+      <br /><br />
+      {% if announcements %}
+      <br /><br />
+      <section>
+        <ul class="rslides">
+          {% for a in announcements %}
+          <li><img src="{{ url_for('static', filename=a) }}" alt=""></li>
+          {% endfor %}
+        </ul>
+      </section>
+      <br /><br />
+      {% endif %}
+      <br /><br />
+      <footer>
+        Apollo Technologies, Inc. © 2024 | <a href="">Contact Us</a>
+      </footer>
+    
+    </div>
+  </body>
+
+  <script>
+      $(function() {
+        $(".rslides").responsiveSlides();
+      });
+  </script>
+</html>
