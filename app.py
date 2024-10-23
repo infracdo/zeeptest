@@ -20,30 +20,53 @@ _hasRun = False
 
 # Temporary CSRF token for authentication
 STATIC_TOKEN = "3b1f1e2f55c34c5b9f8c4e1a7b83e4d0"
+TIME_LIMIT = 5
 
-def trackUptime(): # <------ double check logic
+def trackUptime(): # updates counter, last modified, and limit (bool) <------ double check logic
     while True:
+        time.sleep(1)  # Sleep for 1 second
         current_time = datetime.datetime.now()
         if clients:
-            for client, start_time in list(clients.items()):
-                app.logger.info(client)
-                if (current_time - start_time > datetime.timedelta(minutes=4)):
-                    del clients[client]
-                    app.logger.info('deleted client: ' + str(client))
-    # global trackUser, counter 
-    # while True:# This function runs every second
-    #     if (trackUser): 
-    #         counter+= 1
-    #         print("Quack... x" + str(counter))
-    #         if counter >= 60:
-    #             trackUser = False
-    #             print("no more ducks left")
-    #             with app.test_request_context('/login/'):
-    #                 logout()
-        time.sleep(10)  # Sleep for 10 seconds
+            # [created_at, data_used, counter_in_seconds, incoming, outgoing, limit, last_modified]
+            for client in list(clients.keys()): # <----- For tracking client info
+                
+                created_at = clients[client][0]
+                data_used = clients[client][1]
+                counter_in_seconds = clients[client][2]
+
+                incoming_packets = clients[client][3]
+                outgoing_packets = clients[client][4]
+
+                if (incoming_packets is None and outgoing_packets is None):
+                    incoming_packets = 1
+                    outgoing_packets = 1
+                else:
+                    incoming_packets = int(incoming_packets)
+                    outgoing_packets = int(outgoing_packets)
+                limit = clients[client][5]
+                last_modified = clients[client][6]
+
+                # app.logger.info(f'client mac: {client} registered on: {created_at} data used: {data_used} counter(seconds): {counter_in_seconds} incoming: {incoming_packets} outgoing: {outgoing_packets} last_modified: {last_modified} isLimit?: {limit}')
+                
+                if (datetime.timedelta(seconds=counter_in_seconds) < datetime.timedelta(minutes=TIME_LIMIT)): # if counter < time limit increase counter
+                    if(incoming_packets + outgoing_packets > 1.0):
+                        clients[client][2] += 1
+                        clients[client][5] = datetime.datetime.now().date()
+
+                    app.logger.info(f'current counter for {client}: {clients[client][2]} seconds incoming: {clients[client][3]} outgoing: {clients[client][4]} last modified: {clients[client][6]}')
+                else:
+                    clients[client][5] = True
+                    clients[client][6] = datetime.datetime.now().date()
+        # for category, items in my_dict.items():
+        #     for item in items:
+        #         print(f"{item} is a type of {category}")
+        #         apple is a type of fruits
+        #         banana is a type of fruits
+        #         cherry is a type of fruits
+        #         carrot is a type of vegetables
+        #         broccoli is a type of vegetables
 
 # Generates new token based on secret key and mac address
-
 def genToken(mac):
     secret_key = b'apollo'
     hashed_mac = mac.encode('utf-8')
@@ -121,10 +144,12 @@ def login():
             session.permanent = True # session is set to permanent, clear the session based on a specific requirement
             # app.permanent_session_lifetime = datetime.timedelta(minutes=1)
             session.modified = True
+            # <------ Initializes client info ------>
+            created_at = datetime.datetime.now()
+            last_modified = datetime.datetime.now().date()
 
-            login_time = datetime.datetime.now()
-            clients[session['mac']] = login_time
-            app.logger.info('login time: ' + str(clients.get(session['mac'])))
+            clients[session['mac']] = [created_at, 0, 0, None, None, False, last_modified] # <----- Stores client info in a dict
+            app.logger.info(f"client info: {clients.get(session['mac'])}")
 
             # Check if redirected to access point
             app.logger.info(f"Redirecting to: http://{trans['gw_address']}:{trans['gw_port']}/wifidog/auth?token={trans['token']}")
@@ -187,14 +212,20 @@ def access():
 @app.route('/auth', methods=['GET', 'POST'], strict_slashes=False)
 def auth():
     app.logger.info('someone is accessing /auth with ip:' + str(request.remote_addr))
+    # return "Auth: 0" # emergency logout button (uncomment and wait for AP to request to server)
 
     mac_n = request.args.get('mac', default='', type=str)
     token_n = request.args.get('token', default='', type=str)
     stage_n = request.args.get('stage', default='', type=str)
-    incoming_n = request.args.get('incoming', default=0, type=int)
-    outgoing_n = request.args.get('outgoing', default=0, type=int)
+    incoming_n = request.args.get('incoming')
+    outgoing_n = request.args.get('outgoing')
+    
+    app.logger.info(f'incoming: {incoming_n} and outgoing: {outgoing_n} packets')
 
-    app.logger.info('token_n: ' + str(token_n) + ' stage_n: ' + str(stage_n))
+    clients[mac_n][3] = incoming_n
+    clients[mac_n][4] = outgoing_n
+
+    app.logger.info(f'client mac: {mac_n} token_n: {token_n} stage_n: {stage_n} incoming: {incoming_n} outgoing: {outgoing_n}')
 
     # Check if there is a token
     if not token_n:
@@ -222,7 +253,7 @@ def auth():
     # Free Access Authentication
     if trans['package'] == "One-Click Login":
         # Simulate tracking usage
-        new_record = incoming_n + outgoing_n
+        new_record = int(incoming_n) + int(outgoing_n)
         session['last_record'] = new_record
         consumed_day = new_record  # Dummy tracking daily usage
         consumed_month = new_record  # Dummy tracking monthly usage
@@ -240,12 +271,13 @@ def auth():
     session['octets'] = incoming_n + outgoing_n
     session['last_active'] = str(datetime.datetime.now())
 
-    # Check if client's time is up, if true return auth 0
-
-    if mac_n in clients:
-        return "Auth: 1"
-    else: 
+    # Check if client's time is up or has data left to use, if client reaches limit then return auth: 0
+    if (datetime.timedelta(seconds=clients[mac_n][2]) >= datetime.timedelta(minutes=TIME_LIMIT)): # if counter > time limit return auth 0 
+        app.logger.info(f'client {mac_n} has been disconnected')
         return "Auth: 0"
+    else: 
+        app.logger.info(f'client {mac_n} is authenticated')
+        return "Auth: 1"
 
 # <-------------------- PORTAL (DASHBOARD) ROUTE --------------------->
 @app.route('/portal/') 
