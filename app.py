@@ -15,7 +15,6 @@ timezone = pytz.timezone('UTC')
 
 clients = {}
 counter = 0
-trackUser = False 
 _hasRun = False
 
 # Temporary CSRF token for authentication
@@ -108,7 +107,6 @@ def ping():
 @app.route('/wifidog/login/', methods=['GET', 'POST'], strict_slashes=False)
 @app.route('/login/', methods=['GET', 'POST'], strict_slashes=False)
 def login():
-    global trackUser
     # For form submission
     if request.method == 'POST':
         uname = request.form.get('uname')
@@ -143,19 +141,18 @@ def login():
                 "token": token,
                 "device": session['device']
             }
-            trackUser = True
             session.permanent = True # session is set to permanent, clear the session based on a specific requirement
             # app.permanent_session_lifetime = datetime.timedelta(minutes=1)
             session.modified = True
 
-            # <------ Initializes client info ------>
-            created_at = datetime.datetime.now()
-            last_modified_date = datetime.datetime.now() # datetime.datetime.now().date() # <------ change to current_date after limit testing
+            if (session['mac'] not in clients): # if client is not in client list then create entry
+                # <------ Initializes client info ------>
+                created_at = datetime.datetime.now()
+                last_modified_date = datetime.datetime.now() # datetime.datetime.now().date() # <------ change to current_date after limit testing
 
-            clients[session['mac']] = [created_at, 0, 0, None, None, False, 0, last_modified_date] # <----- Stores client info in a dict
-            app.logger.info(f"client info: {clients.get(session['mac'])}")
-            app.logger.info(f'updated list of clients: {list(clients.keys())}')
-
+                clients[session['mac']] = [created_at, 0, 0, None, None, False, 0, last_modified_date] # <----- Stores client info in a dict
+                app.logger.info(f"client info: {clients.get(session['mac'])}")
+                app.logger.info(f'updated list of clients: {list(clients.keys())}')
 
             # Check if redirected to access point
             app.logger.info(f"Redirecting to: http://{trans['gw_address']}:{trans['gw_port']}/wifidog/auth?token={trans['token']}")
