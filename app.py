@@ -23,25 +23,33 @@ STATIC_TOKEN = "3b1f1e2f55c34c5b9f8c4e1a7b83e4d0"
 TIME_LIMIT = 5
 
 def trackUptime(): # updates counter, last modified, and limit (bool) <------ double check logic
+    app.logger.info(f'current list of clients: {list(clients.keys())}')
     while True:
         time.sleep(1)  # Sleep for 1 second
+        current_time = datetime.datetime.now() # datetime.datetime.now().date() # <------ change to current_date after limit testing
         if clients:
             # [created_at, data_used, counter_in_seconds, incoming, outgoing, limit, last_incoming, last_modified_date]
             for client in list(clients.keys()): # <----- For tracking client info
-                if (last_modified_date is not datetime.datetime.now().date()): # reset counter if last modified date is not today
-                    clients[client][2] = 0 # resets counter
-                    clients[client][3] = 0 # resets incoming
-                    clients[client][4] = 0 # resets outgoing
-                    clients[client][5] = False # resets limit
-                    clients[client][6] = 0 # resets last_incoming
-                    clients[client][7] = datetime.datetime.now().date() # updates last modified date
-                    app.logger.info(f"client {client}'s limit has been reset")
-
                 counter_in_seconds = clients[client][2]
                 incoming_packets = clients[client][3]
                 outgoing_packets = clients[client][4]
                 previous_incoming = clients[client][6]
                 last_modified_date = clients[client][7]
+
+                # if (last_modified_date != datetime.datetime.now().date()): # reset counter if last modified date is not today
+                if (current_time - last_modified_date > datetime.timedelta(minutes=15)): # for testing purposes, allow limit reset after 15 minutes
+                    clients[client][2] = 0 # resets counter
+                    clients[client][3] = 0 # resets incoming
+                    clients[client][4] = 0 # resets outgoing
+                    clients[client][5] = False # resets limit
+                    clients[client][6] = 0 # resets last_incoming
+                    clients[client][7] = current_time # updates last modified date
+                    app.logger.info(f"client {client}'s limit has been reset")
+
+                if (previous_incoming is None):
+                    previous_incoming = 0
+                else:
+                    previous_incoming = int(previous_incoming)
 
                 if (incoming_packets is None and outgoing_packets is None):
                     incoming_packets = 1
@@ -50,16 +58,16 @@ def trackUptime(): # updates counter, last modified, and limit (bool) <------ do
                     incoming_packets = int(incoming_packets)
                     outgoing_packets = int(outgoing_packets)
 
-                if (previous_incoming is not incoming_packets): # if there is a difference then client is active
+                if (previous_incoming != incoming_packets): # if there is a difference then client is active
                     if (datetime.timedelta(seconds=counter_in_seconds) < datetime.timedelta(minutes=TIME_LIMIT)): # if counter < time limit increase counter
                         if(incoming_packets + outgoing_packets > 1.0):
                             clients[client][2] += 1
-                            clients[client][7] = datetime.datetime.now().date() # updates last modified date
+                            clients[client][7] = current_time # updates last modified date
 
                         app.logger.info(f'current counter for {client}: {clients[client][2]} seconds previous incoming: {clients[client][6]} incoming: {clients[client][3]} outgoing: {clients[client][4]} last modified: {clients[client][7]}')
                     else: # update client's limit status
                         clients[client][5] = True
-                        clients[client][7] = datetime.datetime.now().date() # updates last modified date
+                        clients[client][7] = current_time # updates last modified date
 
 # Generates new token based on secret key and mac address
 def genToken(mac):
@@ -142,10 +150,12 @@ def login():
 
             # <------ Initializes client info ------>
             created_at = datetime.datetime.now()
-            last_modified_date = datetime.datetime.now().date()
+            last_modified_date = datetime.datetime.now() # datetime.datetime.now().date() # <------ change to current_date after limit testing
 
             clients[session['mac']] = [created_at, 0, 0, None, None, False, 0, last_modified_date] # <----- Stores client info in a dict
             app.logger.info(f"client info: {clients.get(session['mac'])}")
+            app.logger.info(f'updated list of clients: {list(clients.keys())}')
+
 
             # Check if redirected to access point
             app.logger.info(f"Redirecting to: http://{trans['gw_address']}:{trans['gw_port']}/wifidog/auth?token={trans['token']}")
@@ -218,9 +228,10 @@ def auth():
     stage_n = request.args.get('stage', default='', type=str)
     incoming_n = request.args.get('incoming')
     outgoing_n = request.args.get('outgoing')
-    previous_incoming = clients[mac_n][6]
-    clients[mac_n][3] = incoming_n
-    clients[mac_n][4] = outgoing_n
+    clients[mac_n][6] = clients[mac_n][3] # store stale incoming as previous incoming
+    previous_incoming = clients[mac_n][6] 
+    clients[mac_n][3] = incoming_n # update new incoming
+    clients[mac_n][4] = outgoing_n # update new outgoing
 
     app.logger.info(f'client mac: {mac_n} token_n: {token_n} stage_n: {stage_n} previous incoming: {previous_incoming} current incoming: {incoming_n} current outgoing: {outgoing_n}')
 
