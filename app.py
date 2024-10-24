@@ -23,8 +23,43 @@ STATIC_TOKEN = "3b1f1e2f55c34c5b9f8c4e1a7b83e4d0"
 
 def trackUptime(): # <------ double check logic
     while True:
+        time.sleep(1)  # Sleep for 1 second
         current_time = datetime.datetime.now()
         if clients:
+            # [created_at, data_used, counter_in_seconds, incoming, outgoing, limit, last_incoming, last_modified_date]
+            for client in list(clients.keys()): # <----- For tracking client info
+                if (last_modified_date is not datetime.datetime.now().date()): # reset counter if last modified date is not today
+                    clients[client][2] = 0 # resets counter
+                    clients[client][3] = 0 # resets incoming
+                    clients[client][4] = 0 # resets outgoing
+                    clients[client][5] = False # resets limit
+                    clients[client][6] = 0 # resets last_incoming
+                    clients[client][7] = datetime.datetime.now().date() # updates last modified date
+                    app.logger.info(f"client {client}'s limit has been reset")
+
+                counter_in_seconds = clients[client][2]
+                incoming_packets = clients[client][3]
+                outgoing_packets = clients[client][4]
+                previous_incoming = clients[client][6]
+                last_modified_date = clients[client][7]
+
+                if (incoming_packets is None and outgoing_packets is None):
+                    incoming_packets = 1
+                    outgoing_packets = 1
+                else:
+                    incoming_packets = int(incoming_packets)
+                    outgoing_packets = int(outgoing_packets)
+
+                if (previous_incoming is not incoming_packets): # if there is a difference then client is active
+                    if (datetime.timedelta(seconds=counter_in_seconds) < datetime.timedelta(minutes=TIME_LIMIT)): # if counter < time limit increase counter
+                        if(incoming_packets + outgoing_packets > 1.0):
+                            clients[client][2] += 1
+                            clients[client][7] = datetime.datetime.now().date() # updates last modified date
+
+                        app.logger.info(f'current counter for {client}: {clients[client][2]} seconds previous incoming: {clients[client][6]} incoming: {clients[client][3]} outgoing: {clients[client][4]} last modified: {clients[client][7]}')
+                    else: # update client's limit status
+                        clients[client][5] = True
+                        clients[client][7] = datetime.datetime.now().date() # updates last modified date
             for client, start_time in list(clients.items()):
                 app.logger.info(client)
                 if (current_time - start_time > datetime.timedelta(minutes=4)):
@@ -45,7 +80,7 @@ def trackUptime(): # <------ double check logic
 # Generates new token based on secret key and mac address
 
 def genToken(mac):
-    secret_key = b'apollo'
+    secret_key = b'apollo' 
     hashed_mac = mac.encode('utf-8')
     hmac_object = hmac.new(secret_key, hashed_mac, hashlib.sha256)
     hmac_hex = hmac_object.hexdigest()[:32]
@@ -66,7 +101,7 @@ def getLimit(gw_id, user_id, type_, default_limit):
 @app.before_request
 def firstRun():
     global _hasRun
-    if not _hasRun:
+    if not _hasRun: # allow thread to run once
         _hasRun = True
         thread = threading.Thread(target=trackUptime, args=())
         thread.daemon = True  # Allow thread to exit when main program does
@@ -122,6 +157,12 @@ def login():
             # app.permanent_session_lifetime = datetime.timedelta(minutes=1)
             session.modified = True
 
+            # <------ Initializes client info ------>
+            created_at = datetime.datetime.now()
+            last_modified_date = datetime.datetime.now().date()
+
+            clients[session['mac']] = [created_at, 0, 0, None, None, False, 0, last_modified_date] # <----- Stores client info in a dict
+            app.logger.info(f"client info: {clients.get(session['mac'])}")
             login_time = datetime.datetime.now()
             clients[session['mac']] = login_time
             app.logger.info('login time: ' + str(clients.get(session['mac'])))
@@ -156,9 +197,12 @@ def login():
         if session['ip'] == '' or session['ip'] == None:
             return render_template('logout.html', message="Please connect to the portal using your WiFi settings.", hideReturnToHome=True)
         
-
-        # Display the main page (index.html) when user is redirected to the captive portal
-        return render_template('index.html')
+        # check if client mac already exists, if exists then redirect to logout, if doesnt exist then proceed to access
+        if (session['mac'] in clients and clients[session['mac']][5]): # if client is already existing and already hit limit, return to logout
+            return render_template('logout.html', message="You have already reached the limit for today. Please try again tomorrow.", hideReturnToHome=True)
+        else:
+            # Display the main page (index.html) when user is redirected to the captive portal
+            return render_template('index.html')
 
 # <-------------------- INSTANT ACCESS ROUTE --------------------->
 @app.route('/access/')
@@ -191,9 +235,15 @@ def auth():
     mac_n = request.args.get('mac', default='', type=str)
     token_n = request.args.get('token', default='', type=str)
     stage_n = request.args.get('stage', default='', type=str)
+    incoming_n = request.args.get('incoming')
+    outgoing_n = request.args.get('outgoing')
+    previous_incoming = clients[mac_n][6]
+    clients[mac_n][3] = incoming_n
+    clients[mac_n][4] = outgoing_n
     incoming_n = request.args.get('incoming', default=0, type=int)
     outgoing_n = request.args.get('outgoing', default=0, type=int)
 
+    app.logger.info(f'client mac: {mac_n} token_n: {token_n} stage_n: {stage_n} previous incoming: {previous_incoming} current incoming: {incoming_n} current outgoing: {outgoing_n}')
     app.logger.info('token_n: ' + str(token_n) + ' stage_n: ' + str(stage_n))
 
     # Check if there is a token
@@ -240,12 +290,17 @@ def auth():
     session['octets'] = incoming_n + outgoing_n
     session['last_active'] = str(datetime.datetime.now())
 
+    if (clients[mac_n][5]): #if client hits limit, return true
+        app.logger.info(f'client {mac_n} has been disconnected')
     # Check if client's time is up, if true return auth 0
 
     if mac_n in clients:
         return "Auth: 1"
     else: 
         return "Auth: 0"
+    else:
+        app.logger.info(f'client {mac_n} is authenticated')
+        return "Auth: 1"
 
 # <-------------------- PORTAL (DASHBOARD) ROUTE --------------------->
 @app.route('/portal/') 
@@ -347,29 +402,13 @@ def logout():
     token= session.get('token', STATIC_TOKEN)
 
     app.logger.info('session gw_address: ' + str(gw_address) + ' gw_port: ' + str(gw_port) + ' token: ' + str(token))
-    revoke_url = "http://192.168.90.151:8080/wifidog/auth"
-    params = {
-        'stage': 'logout',
-        'ip': '10.51.0.51',
-        'mac': '8e:3a:d5:f7:aa:6b',
-        'token': '3b1f1e2f55c34c5b9f8c4e1a7b83e4d0',
-        'incoming': '1',
-        'outgoing': '1',
-        'gw_id': 'mpop9016MP'
-    }
-    # app.logger.info(revoke_url)
-    # response = requests.get(revoke_url, params) # <------ requests.exceptions.InvalidURL: Failed to parse: <Response [200]>
-    # app.logger.info(response.text)
 
     session.clear()
     print('session after clear: ' + str(dict(session)))
 
     app.logger.info('user has been logged out...')
     flash("You have been logged out.")
-    # return redirect(f"http://{gw_address}:{gw_port}/wifidog/auth?revoke={token}", code=302) # <----- not revoking internet connection
-    # return redirect(f'http://192.168.90.151:8080/login/?gw_id=mpop9016MP&gw_sn=mpop9016MP&gw_address=1.2.3.4&gw_port=2060&ip=10.11.1.80&mac=cc:12:ee:8d:7b:dd&apmac=0074.9c65.8d2c&ssid=testportal&url=http://nmcheck.gnome.org/&vlanid=51')
-    # Add code here that logs out/forgets client from AP side   
-    return render_template('logout.html', message="You have logged out. Your Pipol Konek connection will automatically terminate after one (1) minute.")
+    return render_template('logout.html', message="You have been logged out.")
 
 if __name__ == '__main__':
     app.run(debug=True, host="0.0.0.0", port=8080)
