@@ -1,24 +1,37 @@
 from flask import Flask, request, session, render_template, redirect, flash, url_for, jsonify
 from flask_wtf.csrf import CSRFProtect
 import datetime, hashlib, hmac, threading, time, requests
-
+from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import text 
 from tzlocal import get_localzone
 import pytz
 
 app = Flask(__name__)
+csrf = CSRFProtect(app)
 # Import configurations from .env file
 app.config.from_object("config")
-
-csrf = CSRFProtect(app)
 
 timezone = pytz.timezone('UTC')
 
 clients = {}
 _hasRun = False
 
+POSTGRES = {
+    'user': 'wildweasel',
+    'pw': 'ap0ll0ap0ll0',
+    'db': 'wildweasel',
+    'host': 'localhost',
+    'port': '5432',
+}
+
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://%(user)s:%(pw)s@%(host)s:%(port)s/%(db)s' % POSTGRES
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+db = SQLAlchemy()
+db.init_app(app)
+
 # Temporary CSRF token for authentication
-STATIC_TOKEN = "3b1f1e2f55c34c5b9f8c4e1a7b83e4d0"
-TIME_LIMIT = 5
+# STATIC_TOKEN = "3b1f1e2f55c34c5b9f8c4e1a7b83e4d0"
+# TIME_LIMIT = 5
 
 def trackUptime(): # updates timer, last modified, and limit (bool) <------ double check logic
     app.logger.info(f'current list of clients: {list(clients.keys())}')
@@ -28,19 +41,19 @@ def trackUptime(): # updates timer, last modified, and limit (bool) <------ doub
         if clients:
             # [created_at, last_incoming, timer, incoming, outgoing, limit, last_modified_date]
             for client in list(clients.keys()): # <----- For tracking client info
+                previous_incoming = clients[client][1]
                 timer = clients[client][2]
                 incoming_packets = clients[client][3]
                 outgoing_packets = clients[client][4]
-                previous_incoming = clients[client][1]
                 last_modified_date = clients[client][6]
 
                 # if (last_modified_date != datetime.datetime.now().date()): # reset timer if last modified date is not today
                 if (current_time - last_modified_date > datetime.timedelta(minutes=15)): # for testing purposes, allow limit reset after 15 minutes
+                    clients[client][1] = None # resets last_incoming
                     clients[client][2] = 300 # resets timer
                     clients[client][3] = None # resets incoming
                     clients[client][4] = None # resets outgoing
                     clients[client][5] = False # resets limit
-                    clients[client][1] = None # resets last_incoming
                     clients[client][6] = current_time # updates last modified date
                     app.logger.info(f"client {client}'s limit has been reset")
 
@@ -67,7 +80,6 @@ def trackUptime(): # updates timer, last modified, and limit (bool) <------ doub
                     else: # update client's limit status
                         clients[client][5] = True
                         clients[client][6] = current_time # updates last modified date
-                        app.logger.info('client has hit the limit')
 
 # Generates new token based on secret key and mac address
 def genToken(mac):
