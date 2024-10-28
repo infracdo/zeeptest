@@ -5,6 +5,7 @@ from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import text 
 from tzlocal import get_localzone
 import pytz
+from models import db, Transaction, AccessAuthLogs, Devices, Registered_Users, CertifiedDevices, Admin_Users, Gateways, Data_Limits, Uptimes, Announcements, Logos, RegisterUser, UserRoles, GatewayGroup, GatewayGroups, GroupAnnouncements, Accounting, PortalRedirectLinks, SessionId
 
 app = Flask(__name__)
 csrf = CSRFProtect(app)
@@ -26,11 +27,10 @@ POSTGRES = {
 
 app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://%(user)s:%(pw)s@%(host)s:%(port)s/%(db)s' % POSTGRES
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-db = SQLAlchemy()
 db.init_app(app)
 
 # Temporary CSRF token for authentication
-# STATIC_TOKEN = "3b1f1e2f55c34c5b9f8c4e1a7b83e4d0"
+STATIC_TOKEN = "3b1f1e2f55c34c5b9f8c4e1a7b83e4d0"
 # TIME_LIMIT = 5
 
 def trackUptime(): # updates timer, last modified, and limit (bool) <------ double check logic
@@ -114,6 +114,7 @@ def firstRun():
 @app.route('/wifidog/ping', strict_slashes=False)
 @app.route('/ping', strict_slashes=False)
 def ping():
+    app.logger.info(f'{str(request.remote_addr)} accessed /ping using the url: {request.url}')
     return "Pong"
 
 # <-------------------- LOGIN ROUTE --------------------->
@@ -231,7 +232,7 @@ def access():
 @app.route('/wifidog/auth', methods=['GET', 'POST'], strict_slashes=False)
 @app.route('/auth', methods=['GET', 'POST'], strict_slashes=False)
 def auth():
-    app.logger.info('someone is accessing /auth with ip:' + str(request.remote_addr))
+    app.logger.info(f'{str(request.remote_addr)} accessed /auth using the url: {request.url}')
     # return "Auth: 0" # emergency logout button (uncomment and wait for AP to request to server)
 
     mac_n = request.args.get('mac', default='', type=str)
@@ -244,7 +245,7 @@ def auth():
     clients[mac_n][3] = incoming_n # update new incoming
     clients[mac_n][4] = outgoing_n # update new outgoing
 
-    app.logger.info(f'client mac: {mac_n} token_n: {token_n} stage_n: {stage_n} previous incoming: {previous_incoming} current incoming: {incoming_n} current outgoing: {outgoing_n}')
+    app.logger.info(f'client mac: {mac_n} token_n: {token_n} stage_n: {stage_n} previous incoming: {previous_incoming} incoming: {incoming_n} outgoing: {outgoing_n}')
 
     # Check if there is a token
     if not token_n:
@@ -368,8 +369,8 @@ def portal():
     if 'logged_in' in session:
         login_time = session['login_time']
         logged_in_duration = datetime.datetime.now(timezone) - login_time
-        time_remaining = datetime.timedelta(minutes=1) - logged_in_duration
-        if logged_in_duration > datetime.timedelta(minutes=1):
+        time_remaining = datetime.timedelta(minutes=5) - logged_in_duration
+        if logged_in_duration > datetime.timedelta(minutes=5):
             return redirect(url_for('logout'))
 
     return render_template( 
@@ -382,7 +383,7 @@ def portal():
         time_remaining=time_remaining,
         daily_limit=ddd_limit,
         monthly_limit=mmm_limit,
-        time_limit='1 minute',
+        time_limit='5 minutes',
         announcements=announcements,
         display_type=display_type,
         path=path
@@ -401,7 +402,7 @@ def logout():
     session.clear()
     print('session after clear: ' + str(dict(session)))
 
-    app.logger.info('user has been logged out...')
+    app.logger.info('user has been redirected to log out page...')
     flash("You have been logged out.")
     return render_template('logout.html', message="You have been logged out.")
 
