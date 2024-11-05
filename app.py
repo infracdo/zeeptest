@@ -1,8 +1,7 @@
 from flask import Flask, request, session, render_template, redirect, flash, url_for, jsonify
 from flask_wtf.csrf import CSRFProtect
 import datetime, hashlib, hmac, threading, time, requests
-from sqlalchemy import text 
-from sqlalchemy.orm import joinedload
+from sqlalchemy import func 
 from models import db, Transaction, AuthLog, Device, ClientSession, SessionStatus, Package
 from tzlocal import get_localzone
 import pytz
@@ -90,9 +89,9 @@ def genToken(mac):
 def encryptPass(password):
     return password[::-1]
 
-# # For future purposes in setting limitations
-# def getLimit(gw_id, user_id, type_, default_limit):
-#     return default_limit
+# For future purposes in setting limitations
+def getLimit(gw_id, user_id, type_, default_limit):
+    return default_limit
 
 # def getFreePackage(device): 
 #     # check if device has active sessions
@@ -127,10 +126,11 @@ def ping():
 # <-------------------- LOGIN ROUTE --------------------->
 @app.route('/wifidog/login/', methods=['GET', 'POST'], strict_slashes=False)
 @app.route('/login/', methods=['GET', 'POST'], strict_slashes=False)
-def login():
-    global session
+def login(): 
     current_time = datetime.datetime.now(timezone)
-    current_date = str(datetime.datetime.now(timezone)) # datetime.datetime.now().date() # <------ change to current_date after limit testing
+    current_date = current_time.strftime("%Y-%m-%d %z") # datetime.datetime.now().date() # <------ change to current_date after limit testing
+    app.logger.info(f'current time: {str(current_time)}, current date: {current_date}')
+
     # For form submission
     if request.method == 'POST':
         # gets parameters from submitted form
@@ -145,45 +145,56 @@ def login():
 
         ### DOUBLE CHECK LOGIC
         # initialize limit for session_tracker here
-        if package == "Free":
+        if package == "Free": 
             trans = Transaction.query.filter_by(token=token).first() # get transaction details via token
-            # check if device has active sessions
-            if ClientSession.query.filter_by(device_id=trans.device_id).count() > 0: ## Code can be simplified if we assume there is only 1 active session per client
-                device_sessions = ClientSession.query.filter(ClientSession.device_id == trans.device_id).all() # gets all of client's sessions
+            device = Device.query.filter_by(id=trans.device_id).first() # get device details via device_id
+            package = Package.query.filter_by(package_type="One-Click Login").first() # get package details via package_id
 
-                if device_sessions: # CHECK CODE LOGIC 
-                    for session in device_sessions: # for each session associated with the device, check if their status is complete
-                        if datetime.strptime(session.created_on, "%Y-%m-%d %z").date() == current_date and Package.query.filter_by(id=session.package_id, package_type="One-Click Login").count() > 0: # if session is created today and package type is free
-                            if SessionStatus.query.filter_by(session_id=session.id, limit_reached=True).count() > 0: # check if the free session that was created today has reached its limit
-                                package = Package.query.filter_by(id=session.package_id, package_type="One-Click Login").first()
-                                msg = "You have used up your free package for today."
-                                if package.counter_type == "mb":
-                                    msg = "You have exceeded your data usage limit for today."
-                                elif package.counter_type == "min":
-                                    msg = "You have exceeded your time limit for today."
-                                return render_template('logout.html', message=msg, returnLink=url_for('access'), return_text="Back")
-                            else:
-                                app.logger.info("client has not reached today's limit")
-                        else: # generate session entry if client hasnt availed a free package today
-                            app.logger.info('client hasnt availed free package today')
-                            sesh = ClientSession(mac=session['mac'], last_in_packets=None, counter=5, in_packets=None, out_packets=None, expired=False, package='Free', counter_type='min', date_modified=current_date, created_on=current_time)
-                            db.session.add(sesh)
-                            db.session.commit()
+            if ClientSession.query.filter_by(device_id=trans.device_id, package_id=package.id).filter(ClientSession.date_modified.like(f'{current_date}%')).count() > 0: # if device has at least 1 free session created today
 
-            # get package_id and 
+                sesh = ClientSession.query.filter_by(device_id=trans.device_id, package_id=package.id).filter(ClientSession.date_modified.like(f'{current_date}%')).first() # get session details
+
+                if SessionStatus.query.filter_by(session_id=sesh.id, limit_reached=True).count() > 0: # if the free package session has not reached its limit then deny auth
+                    package = Package.query.filter_by(package_type="One-Click Login").first()
+                    msg = "You have used up your free daily package for today."
+                    if package.counter_type == "mb":
+                        msg = "You have exceeded your free data usage limit for today."
+                    elif package.counter_type == "min":
+                        msg = "You have exceeded your free time limit for today."
+                    return render_template('logout.html', message=msg, returnLink=url_for('access'), return_text="Back")
+                else: # client has session for free package but it is still not expired: allow auth and update device.last_active
+                    device.last_active = str(current_time)
+                    db.session.commit()
+                    app.logger.info("client has not reached today's limit")
+
+            # if client does not have free session created today, create session and status
+            else: # client has no active session today: allow auth, create session and session_status for free package, and update device.last_active
+                app.logger.info(f'device has no free package session created today. creating session and status entry')
+                sesh = ClientSession(device_id=device.id, package_id=package.id, counter=0, created_on=current_time, date_modified=current_date)
+                db.session.add(sesh)
+                db.session.commit()
+
+                status = SessionStatus(session_id=sesh.id, limit_reached=False)
+                db.session.add(status)
+                db.session.commit()
+
+                device.last_active = str(current_time)
+                db.session.commit()
+            
             trans.stage = "authenticated"
-            trans.package_id = "One-Click Login"
+            trans.package_id = package.id
             trans.uname = device.mac
             session["uname"] = trans.uname
-            trans.date_modified = current_time
+            trans.date_modified = current_date
             trans.created_on = current_time
-            log = AuthLog(gw_id=session['gw_id'], stage="authenticated", mac=trans.mac, username=trans.uname)
+            log = AuthLog(gw_id=session['gw_id'], stage="authenticated", mac=device.mac, uname=trans.uname)
             db.session.add(log)
             db.session.commit()
 
             session.permanent = True # session is set to permanent, clear the session based on a specific requirement
 
             # Redirect to the access point with token (Gateway Address: 1.2.3.4, Port: 2060)
+            app.logger.info(f'authenticating {device.mac} with wifidog auth token..')
             return redirect(f"http://{trans.gw_address}:{trans.gw_port}/wifidog/auth?token={trans.token}", code=302)
         
     else: # For GET request, on first connection, captive portal redirects here
@@ -215,10 +226,10 @@ def login():
         # if device exists in database, update last active
         if Device.query.filter_by(mac=session['mac']).count() > 0:
             device = Device.query.filter_by(mac=session['mac']).first()
-            device.last_active = current_time
+            device.last_active = str(current_time)
             db.session.commit()
         else: # add to database if new device
-            new_device = Device(mac=session['mac'], last_incoming_packets=None, incoming_packets=None, outgoing_packets=None, last_active=current_time)
+            new_device = Device(mac=session['mac'], last_incoming_packets=None, incoming_packets=None, outgoing_packets=None, last_active=str(current_time))
             db.session.add(new_device)
             db.session.commit()
 
@@ -290,7 +301,7 @@ def auth():
     # return "Auth: 0" # emergency logout button (uncomment and wait for AP to request to server)
 
     current_time = datetime.datetime.now(timezone)
-    current_date = str(datetime.datetime.now(timezone))
+    current_date = current_time.strftime("%Y-%m-%d %z")
 
     # retrieve parameters from request url
     mac_n = request.args.get('mac', default='', type=str)
@@ -298,12 +309,13 @@ def auth():
     stage_n = request.args.get('stage', default='', type=str)
     incoming_n = request.args.get('incoming')
     outgoing_n = request.args.get('outgoing')
-    trans = Transaction.query.filter_by(token=token_n).first() # gets transaction details from token
+    trans = Transaction.query.filter_by(token=token_n).first() # get transaction details from token
 
     app.logger.info(f'client mac: {mac_n} token_n: {token_n} stage_n: {stage_n} incoming: {incoming_n} outgoing: {outgoing_n}')
 
     # Check if there is a token
     if not token_n:
+        app.logger.warning('no token provided')
         return "No authentication token provided.", 403
 
     app.logger.info('session transaction: ' + str(dict(session)))
@@ -311,7 +323,6 @@ def auth():
     if not trans.created_on:
         trans.created_on = current_time
         db.session.commit()
-
 
     # <------ Logouts client ------>
     if stage_n == "logout": # stops connection during logout stage and updates database
@@ -326,17 +337,19 @@ def auth():
         trans.stage = "logout"
         trans.date_modified = current_date
         db.session.commit()
+        app.logger.warning('client has been logged out')
         return "Auth: 0"
 
     if trans.stage == "logout":
+        app.logger.warning('client has been logged out')
         return "Auth: 0"
 
-    # <------ Update counter ------>
+    # <------ Updates counter ------>
     if stage_n == "counters" and not (trans.created_on == None or trans.created_on == ''):
         # check if package type is mb or min
         if Package.query.filter_by(id=trans.package_id).count() > 0:
             package = Package.query.filter_by(id=trans.package_id).first() # gets package info from device id
-            session = ClientSession.query.filter_by(device_id=trans.device_id).first() # gets session info from device id
+            sesh = ClientSession.query.filter_by(device_id=trans.device_id).first() # gets session info from device id
             device = Device.query.filter_by(id=trans.device_id).first()
 
             # evaluates packets from auth
@@ -345,13 +358,14 @@ def auth():
                     # device.last_incoming_packets = device.incoming_packets # store old packet
                     device.incoming_packets = incoming_n # update new incoming packet
                     device.outgoing_packets = outgoing_n # update new outgoing packet
-                    device.last_active = current_date
+                    device.last_active = str(current_time)
 
                     if package.limit_type == "mb":
-                        session.counter = int(device.incoming_packets) + int(device.outgoing_packets)
+                        sesh.counter = int(device.incoming_packets) + int(device.outgoing_packets)
                     elif package.limit_type == "min":
-                        session.counter = int(session.counter) + 1
-                        session.date_modified = current_date
+                        sesh.counter = int(sesh.counter) + 1
+                        sesh.date_modified = current_date
+                    app.logger.info(f'current {device.mac} session counter is {sesh.counter} {package.limit_type}')
                     db.session.commit()
                     app.logger.info(f'{device.mac} is using their data')
                 else: # if there is no new activity from client
@@ -365,17 +379,48 @@ def auth():
             session['stage'] = stage_n
 
             # evaluates if client should still be connected
-            if (session.counter >= package.limit): #if client hits counter limit, return true
-                app.logger.info(f'informed {str(request.remote_addr)} to disconnect {mac_n}')
-                ### update database to reflect change
-                return "Auth: 0"
-            else:
-                app.logger.info(f'informed {str(request.remote_addr)} to keep {mac_n} connected')
-
-                return "Auth: 1"
+            if package.limit_type == "mb":
+                if (sesh.counter >= (package.limit * 1000000)): #if client hits counter limit in mb, return true
+                    app.logger.info(f'informed {str(request.remote_addr)} to disconnect {mac_n}')
+                    ### update database to reflect change
+                    return "Auth: 0"
+                else:
+                    app.logger.info(f'informed {str(request.remote_addr)} to keep {mac_n} connected')
+                    return "Auth: 1"
+            elif package.limit_type == "min":
+                if (sesh.counter >= package.limit): #if client hits counter limit in min, return true
+                    app.logger.info(f'informed {str(request.remote_addr)} to disconnect {mac_n}')
+                    ### update database to reflect change
+                    return "Auth: 0"
+                else:
+                    app.logger.info(f'informed {str(request.remote_addr)} to keep {mac_n} connected')
+                    return "Auth: 1"
         
         app.logger.warning(f'package not found')
-        return "Auth: 0"
+    
+    # <------ Authenticates client after one-click login ------>
+    package_id = Package.query.filter_by(package_type="One-Click Login").first().id # get package id of free package
+    app.logger.info(f'transaction package id is: {trans.package_id} while free package id is: {package_id}')
+    app.logger.info(f'comparing {trans.created_on.strftime("%Y-%m-%d %z")} with {current_time.strftime("%Y-%m-%d %z")}')
+    if int(trans.package_id) == int(package_id) and str(trans.created_on.date()) == str(current_time.date()): 
+        # if client has free package session that is created today and has not reached limit then allow auth
+
+        sesh = ClientSession.query.filter_by(device_id=trans.device_id, package_id=package_id).filter(ClientSession.date_modified.like(f'{current_date}%')).first() # get session details
+
+        if SessionStatus.query.filter_by(session_id=sesh.id).count() > 0:
+            session_status = SessionStatus.query.filter_by(session_id=sesh.id).first()
+            if session_status.limit_reached:
+                app.logger.warning('client has been logged out')
+                return "Auth: 0"
+            else:
+                app.logger.info('client has been authenticated')
+                return "Auth: 1"
+        else:
+            app.logger.info('no session found')
+                
+    app.logger.warning('reached the end of /auth')
+    return "Auth: 0"
+
 
 # <-------------------- PORTAL (DASHBOARD) ROUTE --------------------->
 @app.route('/portal/') 
@@ -477,4 +522,4 @@ def logout():
     return render_template('logout.html', message="You have been logged out.")
 
 if __name__ == '__main__':
-    app.run(debug=True, host="0.0.0.0", port=80)
+    app.run(debug=True, host="0.0.0.0", port=8080)
