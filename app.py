@@ -2,6 +2,7 @@ from flask import Flask, request, session, render_template, redirect, flash, url
 from flask_wtf.csrf import CSRFProtect
 import datetime, hashlib, hmac, threading, time, requests
 from sqlalchemy import text 
+from sqlalchemy.orm import joinedload
 from models import db, Transaction, AuthLog, Device, ClientSession, SessionStatus, Package
 from tzlocal import get_localzone
 import pytz
@@ -49,16 +50,6 @@ def trackUptime(): # updates timer, last modified, and limit (bool) <------ doub
                 outgoing_packets = clients[client][4]
                 date_modified = clients[client][6]
 
-                # if (date_modified != datetime.datetime.now().date()): # reset timer if last modified date is not today
-                if (current_time - date_modified > datetime.timedelta(minutes=15)): # for testing purposes, allow limit reset after 15 minutes <------ convert this to database query
-                    clients[client][1] = None # resets last_incoming
-                    clients[client][2] = 300 # resets timer
-                    clients[client][3] = None # resets incoming
-                    clients[client][4] = None # resets outgoing
-                    clients[client][5] = False # resets limit
-                    clients[client][6] = current_time # updates last modified date
-                    app.logger.info(f"client {client}'s limit has been reset")
-
                 if (previous_incoming is None): # <------ convert this to database query
                     previous_incoming = 0
                 else:
@@ -103,6 +94,20 @@ def encryptPass(password):
 def getLimit(gw_id, user_id, type_, default_limit):
     return default_limit
 
+def getFreePackage(device): 
+    # check if device has active sessions
+    if ClientSession.query.filter_by(device_id=device.device_id).count() > 0:
+        device_sessions = ClientSession.query.filter( # gets all session associated with device id
+            ClientSession.device_id == device.device_id
+        ).all()
+
+        if device_sessions: # CHECK CODE LOGIC 
+            for session in device_sessions: # for each session associated with the device, check if their status is active
+                if SessionStatus.query.filter_by(session_id=session.id, limit_reached=False).count() > 0: # if session limit is not reached, check package type
+                    if Package.query.filter_by(id=session.package_id, package_type="One-Click Login").count() > 0: # if 
+                        return session.id
+    return None
+
 @app.before_request
 def firstRun():
     global _hasRun
@@ -140,67 +145,41 @@ def login():
 
         # initialize limit for session_tracker here
         if package == "Free":
-            # get package_id of package where package_type == 'One-Click Login'
-            package_info = Package.query.filter_by(package_type='One-Click Login').first()
-            session['type'] = 'One-Click Login'
-
             trans = Transaction.query.filter_by(token=token).first()
-            # add logic here where server checks if client hits daily free data limit
+            # check if device has active sessions
+            if ClientSession.query.filter_by(device_id=trans.device_id).count() > 0:
+                device_sessions = ClientSession.query.filter(ClientSession.device_id == trans.device_id).all() # gets all of client's sessions
 
-            
-            
-            # Mock data to simulate user session and transaction
-            session["uname"] = session['mac']
-            trans = {
-                "stage": "authenticated",
-                "package_id": package_info.id,
-                "uname": session['mac'],
-                "mac": session['mac'],
-                "ip": session['ip'],
-                "gw_address": session['gw_address'],
-                "gw_port": session['gw_port'],
-                "token": token,
-                "device": session['device']
-            }
+                if device_sessions: # CHECK CODE LOGIC 
+                    for session in device_sessions: # for each session associated with the device, check if their status is complete
+                        if datetime.strptime(session.created_on, "%Y-%m-%d %z").date() == current_date and Package.query.filter_by(id=session.package_id, package_type="One-Click Login").count() > 0: # if session is created today and package type is free
+                            if SessionStatus.query.filter_by(session_id=session.id, limit_reached=True).count() > 0: # check if the free session that was created today has reached its limit
+                                package = Package.query.filter_by(id=session.package_id, package_type="One-Click Login").first()
+                                msg = "You have used up your free package for today."
+                                if package.counter_type == "mb":
+                                    msg = "You have exceeded your data usage limit for today."
+                                elif package.counter_type == "min":
+                                    msg = "You have exceeded your time limit for today."
+                                return render_template('logout.html', message=msg, returnLink=url_for('access'), return_text="Back")
+                            else:
+                                app.logger.info("client has not reached today's limit")
+                        else: # generate session entry if client hasnt availed a free package today
+                            app.logger.info('client hasnt availed free package today')
+                            sesh = ClientSession(mac=session['mac'], last_in_packets=None, counter=5, in_packets=None, out_packets=None, expired=False, package='Free', counter_type='min', date_modified=current_date, created_on=current_time)
+                            db.session.add(sesh)
+                            db.session.commit()
 
-            # app.permanent_session_lifetime = datetime.timedelta(minutes=1)
-            session.modified = True
+            # get package_id and 
+            trans.stage = "authenticated"
+            trans.package_id = "One-Click Login"
+            trans.uname = device.mac
+            session["uname"] = trans.uname
+            trans.date_modified = current_time
+            trans.created_on = current_time
+            log = AuthLog(gw_id=session['gw_id'], stage="authenticated", mac=trans.mac, username=trans.uname)
+            db.session.add(log)
+            db.session.commit()
 
-            trans = Transaction.query.filter_by(token=token).first() # use token to identify client mac
-            if Device.query.filter_by(mac=trans.mac).count() > 0:
-                device = Device.query.filter_by(mac=trans.mac).first()
-                ### POLISH THIS CODE (CHECK IF IT MATTERS TO OPERATIONS)
-            else:
-                # add to database if new device
-                new_device = Device(mac=trans.mac, free_data=0, last_active=str(current_time), last_record=0)
-                db.session.add(new_device)
-                db.session.commit()
-            # for free package
-            if ClientSession.query.filter_by(mac=trans.mac, package='Free', date_modified=current_date).count() > 0: # check if client has availed today's free data
-                client_session = ClientSession.query.filter_by(mac=trans.mac, package='Free', date_modified=current_date).first() # if exist, store entry into variable for comparison
-                if (client_session.expired): # if client's daily free data is expired, redirect to logout page
-                    return render_template('logout.html', message="You have already reached the limit for today. Please try again tomorrow.", hideReturnToHome=True)
-                else:
-                    app.logger.info(f'[AUTHENTICATED] {trans.mac} has unused daily free data')
-            else: # if client has not yet availed free package today then continue
-                app.logger.info(f"[AUTHENTICATING] {trans.mac} has not availed today's free data")
-                # <------ Initializes client info ------>
-                # create free package transaction in db
-                trans.stage = "authenticated"
-                trans.package = "One-Click Login"
-                trans.uname = trans.mac
-                session["uname"] = trans.uname
-                trans.date_modified = current_date
-                trans.created_on = current_time
-                log = AuthLog(gw_id=session['gw_id'], stage="authenticated", mac=trans.mac, username=trans.uname)
-                db.session.add(log)
-                db.session.commit()
-
-                ### CREATE SESSION TRACKER FOR DAILY FREE DATA
-                sesh = ClientSession(mac=session['mac'], last_in_packets=None, counter=5, in_packets=None, out_packets=None, expired=False, package='Free', counter_type='min', date_modified=current_date, created_on=current_time)
-                db.session.add(sesh)
-                db.session.commit()
-            
             session.permanent = True # session is set to permanent, clear the session based on a specific requirement
 
             # Redirect to the access point with token (Gateway Address: 1.2.3.4, Port: 2060)
@@ -232,22 +211,19 @@ def login():
         if session['ip'] == '' or session['ip'] == None:
             return render_template('logout.html', message="Please connect to the portal using your WiFi settings.", hideReturnToHome=True)
         
-        if session['mac'] == '' or session['mac'] == None:
-            return render_template('logout.html', message="Please connect to the portal using your WiFi settings.", hideReturnToHome=True)
-        
         # if device exists in database, update last active
         if Device.query.filter_by(mac=session['mac']).count() > 0:
             device = Device.query.filter_by(mac=session['mac']).first()
             device.last_active = current_time
             db.session.commit()
         else: # add to database if new device
-            new_device = Device(mac=session['mac'], last_incoming_packets=0, incoming_packets=0, outgoing_packets=0, last_active=current_time)
+            new_device = Device(mac=session['mac'], last_incoming_packets=None, incoming_packets=None, outgoing_packets=None, last_active=current_time)
             db.session.add(new_device)
             db.session.commit()
 
         device_id = Device.query.filter_by(mac=session['mac']).first().id
 
-        # if client has previous transactions, get token  
+        # if client has previous transactions, get token 
         if Transaction.query.filter_by(device_id=device_id, device=session['device']).count() > 0:
             session['token'] = Transaction.query.filter_by(device_id=device_id, device=session['device']).first().token
 
@@ -315,29 +291,19 @@ def auth():
     current_time = datetime.datetime.now(timezone)
     current_date = datetime.datetime.now(timezone).strftime('%Y-%m-%d %z')
 
+    # retrieve parameters from request url
     mac_n = request.args.get('mac', default='', type=str)
     token_n = request.args.get('token', default='', type=str)
     stage_n = request.args.get('stage', default='', type=str)
     incoming_n = request.args.get('incoming')
     outgoing_n = request.args.get('outgoing')
-    trans = Transaction.query.filter_by(token=token_n).first()
+    trans = Transaction.query.filter_by(token=token_n).first() # gets transaction details from token
 
     app.logger.info(f'client mac: {mac_n} token_n: {token_n} stage_n: {stage_n} incoming: {incoming_n} outgoing: {outgoing_n}')
 
     # Check if there is a token
     if not token_n:
         return "No authentication token provided.", 403
-
-    # Simulate a session-based transaction
-    trans = {
-        "token": session.get("token"),
-        "uname": session.get("uname", "guest"),
-        "mac": session.get("mac", "00:00:00:00"),
-        "gw_id": session.get("gw_id", "gateway"),
-        "ip": session.get("ip", "0.0.0.0"),
-        "package": session.get("package", "One-Click Login"),
-        "device": session.get("device", "unknown"),
-    }
 
     app.logger.info('session transaction: ' + str(dict(session)))
 
@@ -372,10 +338,41 @@ def auth():
     if trans.stage == "logout":
         return "Auth: 0"
 
-    # <------ Boot out dormant entries ------>
+    # <------ Logouts client ------>
+
+
+
+    # <------ Update counter ------>
     if stage_n == "counters" and not (trans.created_on == None or trans.created_on == ''):
-        elapsed_time = current_time - trans.created_on
-        
+        # check if package type is mb or min
+        if Package.query.filter_by(id=trans.package_id).count() > 0:
+            package = Package.query.filter_by(id=trans.package_id).first() # gets package info from device id
+            session = ClientSession.query.filter_by(device_id=trans.device_id).first() # gets session info from device id
+            device = Device.query.filter_by(id=trans.device_id).first()
+
+            # evaluates packets from auth
+            if incoming_n != 0 and outgoing_n != 0: # if neither new values are 0, data is being exchanged
+                if incoming_n != device.incoming_packets: # if new and stored incoming arent same, there is new activity
+                    # device.last_incoming_packets = device.incoming_packets # store old packet
+                    device.incoming_packets = incoming_n # update new incoming packet
+                    device.outgoing_packets = outgoing_n # update new outgoing packet
+
+                    if package.limit_type == "mb":
+                        session.counter = int(device.incoming_packets) + int(device.outgoing_packets)
+                    elif package.limit_type == "min":
+                        session.counter = int(session.counter) + 1
+                    db.session.commit()
+
+                    app.logger.info(f'{device.mac} is using their data')
+                else: # if there is no new activity from client
+                    app.logger.info(f'{device.mac} is idle')
+            else: # if client has no internet activity
+                app.logger.info(f'{device.mac} has yet to send/receive data')
+            
+            app.logger.info(f'{device.mac} last in: {device.last_incoming_packets}, stored in: {device.incoming_packets}, new in: {incoming_n}, stored out: {device.outgoing_packets}, new out: {outgoing_n}')
+
+        # if min then +1 counter per auth request
+        # else if mb then counter=incoming+outgoing if last incoming =/= current incoming
         if incoming_n + outgoing_n < 1.0:
             if elapsed_time >= datetime.timedelta(minutes=15):
                 trans.stage = "logout"
@@ -391,13 +388,6 @@ def auth():
                 trans.last_active = current_time
                 db.session.commit()
                 return "Auth: 0"
-
-        if elapsed_time >= datetime.timedelta(hours=24):
-            trans.stage = "logout"
-            trans.date_modified = current_date
-            trans.last_active = current_time
-            db.session.commit()
-            return "Auth: 0"
 
     # <------ AUTHENTICATION FOR FREE ACCESS | @authFree ------>
 
