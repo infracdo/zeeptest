@@ -50,6 +50,7 @@ class Transaction(BaseModel, db.Model):
     device = db.Column(db.String)
     date_modified = db.Column(db.String)
     gw_id = db.Column(db.String)
+    cluster_id = db.Column(db.String)
     created_on = db.Column(db.DateTime(timezone=True))
 
     def __init__(self, **kwargs):
@@ -69,6 +70,7 @@ class Transaction(BaseModel, db.Model):
         self.device = kwargs.get('device')
         self.date_modified = kwargs.get('date_modified')
         self.gw_id = kwargs.get('gw_id')
+        self.cluster_id = kwargs.get('cluster_id')
         self.created_on = kwargs.get('created_on')
 
 
@@ -90,17 +92,15 @@ class Device(BaseModel, db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     mac = db.Column(db.String)
-    last_incoming_packets = db.Column(db.Float)
-    incoming_packets = db.Column(db.Float)
-    outgoing_packets = db.Column(db.Float)
+    total_incoming_packets = db.Column(db.Float)
+    total_outgoing_packets = db.Column(db.Float)
     last_active = db.Column(db.String)
 
     def __init__(self, **kwargs):
         self.id = kwargs.get('id')
         self.mac = kwargs.get('mac')
-        self.last_incoming_packets = kwargs.get('last_incoming_packets')
-        self.incoming_packets = kwargs.get('incoming_packets')
-        self.outgoing_packets = kwargs.get('outgoing_packets')
+        self.total_incoming_packets = kwargs.get('total_incoming_packets')
+        self.total_outgoing_packets = kwargs.get('total_outgoing_packets')
         self.last_active = kwargs.get('last_active')
 
         
@@ -111,30 +111,24 @@ class ClientSession(BaseModel, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     device_id = db.Column(db.Integer)
     package_id = db.Column(db.Integer)
+    cluster_id = db.Column(db.Integer)
     counter = db.Column(db.Integer)
+    incoming_packets = db.Column(db.Float)
+    outgoing_packets = db.Column(db.Float)
     created_on = db.Column(db.DateTime(timezone=True))
     date_modified = db.Column(db.String)
+    limit_reached = db.Column(db.Boolean)
 
     def __init__(self, **kwargs):
         self.id = kwargs.get('id')
         self.device_id = kwargs.get('device_id')
         self.package_id = kwargs.get('package_id')
+        self.cluster_id = kwargs.get('cluster_id')
         self.counter = kwargs.get('counter')
+        self.incoming_packets = kwargs.get('incoming_packets')
+        self.outgoing_packets = kwargs.get('outgoing_packets')
         self.created_on = kwargs.get('created_on')
         self.date_modified = kwargs.get('date_modified')
-
-        
-class SessionStatus(BaseModel, db.Model):
-    """Model for the session status table"""
-    __tablename__ = 'session_status' 
-
-    id = db.Column(db.Integer, primary_key=True)
-    session_id = db.Column(db.Integer)
-    limit_reached = db.Column(db.Boolean)
-
-    def __init__(self, **kwargs):
-        self.id = kwargs.get('id')
-        self.session_id = kwargs.get('session_id')
         self.limit_reached = kwargs.get('limit_reached')
 
 
