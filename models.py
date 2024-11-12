@@ -56,9 +56,7 @@ class Transaction(BaseModel, db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     acc_id = db.Column(db.Integer)
-    cluster_id = db.Column(db.Integer)
     package_id = db.Column(db.Integer)
-    device_id = db.Column(db.Integer)
     vlanid = db.Column(db.String)
     gw_id = db.Column(db.String)
     gw_sn = db.Column(db.String)
@@ -66,39 +64,11 @@ class Transaction(BaseModel, db.Model):
     gw_port = db.Column(db.String)
     ssid = db.Column(db.String)
     apmac = db.Column(db.String)
+    mac = db.Column(db.String)
+    device = db.Column(db.String)
     ip = db.Column(db.String)
     token = db.Column(db.String)
     stage = db.Column(db.String)
-    created_on = db.Column(db.DateTime(timezone=True))
-    date_modified = db.Column(db.String)
-
-    def __init__(self, **kwargs):
-        self.id = kwargs.get('id')
-        self.acc_id = kwargs.get('acc_id')
-        self.cluster_id = kwargs.get('cluster_id')
-        self.package_id = kwargs.get('package_id')
-        self.device_id = kwargs.get('device_id')
-        self.vlanid = kwargs.get('vlanid')
-        self.gw_id = kwargs.get('gw_id')
-        self.gw_sn = kwargs.get('gw_sn')
-        self.gw_address = kwargs.get('gw_address')
-        self.gw_port = kwargs.get('gw_port')
-        self.ssid = kwargs.get('ssid')
-        self.apmac = kwargs.get('apmac')
-        self.ip = kwargs.get('ip')
-        self.token = kwargs.get('token')
-        self.stage = kwargs.get('stage')
-        self.created_on = kwargs.get('created_on')
-        self.date_modified = kwargs.get('date_modified')
-
-
-class Device(BaseModel, db.Model):
-    """Model for the devices table"""
-    __tablename__ = 'acc_devices'
-
-    id = db.Column(db.Integer, primary_key=True)
-    mac = db.Column(db.String)
-    env = db.Column(db.String)
     total_incoming_packets = db.Column(db.Float)
     total_outgoing_packets = db.Column(db.Float)
     created_on = db.Column(db.DateTime(timezone=True))
@@ -106,13 +76,24 @@ class Device(BaseModel, db.Model):
 
     def __init__(self, **kwargs):
         self.id = kwargs.get('id')
+        self.acc_id = kwargs.get('acc_id')
+        self.package_id = kwargs.get('package_id')
+        self.vlanid = kwargs.get('vlanid')
+        self.gw_id = kwargs.get('gw_id')
+        self.gw_sn = kwargs.get('gw_sn')
+        self.gw_address = kwargs.get('gw_address')
+        self.gw_port = kwargs.get('gw_port')
+        self.ssid = kwargs.get('ssid')
+        self.apmac = kwargs.get('apmac')
         self.mac = kwargs.get('mac')
-        self.env = kwargs.get('env')
+        self.device = kwargs.get('device')
+        self.ip = kwargs.get('ip')
+        self.token = kwargs.get('token')
+        self.stage = kwargs.get('stage')
         self.total_incoming_packets = kwargs.get('total_incoming_packets')
         self.total_outgoing_packets = kwargs.get('total_outgoing_packets')
         self.created_on = kwargs.get('created_on')
         self.last_active = kwargs.get('last_active')
-
         
 class ClientSession(BaseModel, db.Model):
     """Model for the session tracker table"""
@@ -120,28 +101,26 @@ class ClientSession(BaseModel, db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     acc_id = db.Column(db.Integer)
-    device_id = db.Column(db.Integer)
-    cluster_id = db.Column(db.Integer)
-    limit = db.Column(db.Integer)
-    limit_type = db.Column(db.Integer)
+    package_id = db.Column(db.Integer)
+    limit_count = db.Column(db.Integer)
+    limit_type = db.Column(db.String)
     counter = db.Column(db.Integer)
     incoming_packets = db.Column(db.Float)
     outgoing_packets = db.Column(db.Float)
     created_on = db.Column(db.DateTime(timezone=True))
-    date_modified = db.Column(db.String)
+    last_modified = db.Column(db.String) 
 
     def __init__(self, **kwargs):
         self.id = kwargs.get('id')
         self.acc_id = kwargs.get('acc_id')
-        self.device_id = kwargs.get('device_id')
-        self.cluster_id = kwargs.get('cluster_id')
-        self.limit = kwargs.get('limit')
+        self.package_id = kwargs.get('package_id')
+        self.limit_count = kwargs.get('limit_count')
         self.limit_type = kwargs.get('limit_type')
         self.counter = kwargs.get('counter')
         self.incoming_packets = kwargs.get('incoming_packets')
         self.outgoing_packets = kwargs.get('outgoing_packets')
         self.created_on = kwargs.get('created_on')
-        self.date_modified = kwargs.get('date_modified')
+        self.last_modified = kwargs.get('last_modified')
 
 
 class Package(BaseModel, db.Model):
@@ -151,7 +130,7 @@ class Package(BaseModel, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String) # name of package
     description = db.Column(db.String) # short description of package details
-    limit = db.Column(db.Integer) # either in minutes or mb
+    limit_count = db.Column(db.Integer) # either in minutes or mb
     limit_type = db.Column(db.String) # determines how package is measured
     package_type = db.Column(db.String) # free/paid/promo
     price = db.Column(db.Float) # price of package in php, 0 is equivalent to free 
@@ -161,7 +140,7 @@ class Package(BaseModel, db.Model):
         self.id = kwargs.get('id')
         self.title = kwargs.get('title')
         self.description = kwargs.get('description')
-        self.limit = kwargs.get('limit')
+        self.limit_count = kwargs.get('limit_count')
         self.limit_type = kwargs.get('limit_type')
         self.package_type = kwargs.get('package_type')
         self.price = kwargs.get('price')
