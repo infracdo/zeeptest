@@ -1,86 +1,47 @@
 from flask import Flask, request, session, render_template, redirect, flash, url_for, jsonify
 from flask_wtf.csrf import CSRFProtect
-import datetime, hashlib, hmac, threading, time, requests
-
+import os, datetime, hashlib, hmac, threading, time, requests
+from sqlalchemy import func 
+from models import db, Account, Transaction, AuthLog, ClientSession, Package
 from tzlocal import get_localzone
+from dateutil import parser
 import pytz
 
 app = Flask(__name__)
+csrf = CSRFProtect(app)
+app.secret_key = b'_5#y2L!.4Q8z\n\xec]/'
 # Import configurations from .env file
 app.config.from_object("config")
 
-csrf = CSRFProtect(app)
-
-timezone = pytz.timezone('UTC')
+timezone = pytz.timezone('Asia/Manila')
 
 clients = {}
-counter = 0
-trackUser = False 
 _hasRun = False
 
-# Temporary CSRF token for authentication
-STATIC_TOKEN = "3b1f1e2f55c34c5b9f8c4e1a7b83e4d0"
+STATIC_TOKEN = os.environ.get("STATIC_TOKEN")
+PACKAGE_TYPE_FREE = os.environ.get("PACKAGE_TYPE_FREE")
+UNAME = "apollo"
 
-def trackUptime(): # <------ double check logic
-    while True:
-        time.sleep(1)  # Sleep for 1 second
-        current_time = datetime.datetime.now()
-        if clients:
-            # [created_at, data_used, counter_in_seconds, incoming, outgoing, limit, last_incoming, last_modified_date]
-            for client in list(clients.keys()): # <----- For tracking client info
-                if (last_modified_date is not datetime.datetime.now().date()): # reset counter if last modified date is not today
-                    clients[client][2] = 0 # resets counter
-                    clients[client][3] = 0 # resets incoming
-                    clients[client][4] = 0 # resets outgoing
-                    clients[client][5] = False # resets limit
-                    clients[client][6] = 0 # resets last_incoming
-                    clients[client][7] = datetime.datetime.now().date() # updates last modified date
-                    app.logger.info(f"client {client}'s limit has been reset")
+POSTGRES = {
+    'user': 'wildweasel',
+    'pw': 'ap0ll0ap0ll0',
+    'db': 'wildweasel',
+    'host': 'localhost',
+    'port': '5432',
+}
 
-                counter_in_seconds = clients[client][2]
-                incoming_packets = clients[client][3]
-                outgoing_packets = clients[client][4]
-                previous_incoming = clients[client][6]
-                last_modified_date = clients[client][7]
+portal_url_root = "http://192.168.90.151:8080/"
 
-                if (incoming_packets is None and outgoing_packets is None):
-                    incoming_packets = 1
-                    outgoing_packets = 1
-                else:
-                    incoming_packets = int(incoming_packets)
-                    outgoing_packets = int(outgoing_packets)
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://%(user)s:%(pw)s@%(host)s:%(port)s/%(db)s' % POSTGRES
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+db.init_app(app)
 
-                if (previous_incoming is not incoming_packets): # if there is a difference then client is active
-                    if (datetime.timedelta(seconds=counter_in_seconds) < datetime.timedelta(minutes=TIME_LIMIT)): # if counter < time limit increase counter
-                        if(incoming_packets + outgoing_packets > 1.0):
-                            clients[client][2] += 1
-                            clients[client][7] = datetime.datetime.now().date() # updates last modified date
+# def trackUptime(): # updates timer, last modified, and limit (bool) <------ double check logic
+#     app.logger.info(f'current list of clients: {list(clients.keys())}')
 
-                        app.logger.info(f'current counter for {client}: {clients[client][2]} seconds previous incoming: {clients[client][6]} incoming: {clients[client][3]} outgoing: {clients[client][4]} last modified: {clients[client][7]}')
-                    else: # update client's limit status
-                        clients[client][5] = True
-                        clients[client][7] = datetime.datetime.now().date() # updates last modified date
-            for client, start_time in list(clients.items()):
-                app.logger.info(client)
-                if (current_time - start_time > datetime.timedelta(minutes=4)):
-                    del clients[client]
-                    app.logger.info('deleted client: ' + str(client))
-    # global trackUser, counter 
-    # while True:# This function runs every second
-    #     if (trackUser): 
-    #         counter+= 1
-    #         print("Quack... x" + str(counter))
-    #         if counter >= 60:
-    #             trackUser = False
-    #             print("no more ducks left")
-    #             with app.test_request_context('/login/'):
-    #                 logout()
-        time.sleep(10)  # Sleep for 10 seconds
-
-# Generates new token based on secret key and mac address
-
-def genToken(mac):
-    secret_key = b'apollo' 
+# Generates new token based on secret key and mac address 
+def genToken(mac): # generates 1 unique token per mac address
+    secret_key = b'apollo' # <---- What if secret_key is transaction.created_on or transaction.id 
     hashed_mac = mac.encode('utf-8')
     hmac_object = hmac.new(secret_key, hashed_mac, hashlib.sha256)
     hmac_hex = hmac_object.hexdigest()[:32]
@@ -94,87 +55,127 @@ def genToken(mac):
 def encryptPass(password):
     return password[::-1]
 
+# For future purposes in checking account validity
+def checkAccValidity(uname, pword):
+    ## ADD LOGIC FOR CHECKING ACC VALIDITY
+    if Account.query.filter_by(uname=uname, pword=pword).count() > 0:
+        return True
+    return False
+
 # For future purposes in setting limitations
 def getLimit(gw_id, user_id, type_, default_limit):
     return default_limit
 
-@app.before_request
-def firstRun():
-    global _hasRun
-    if not _hasRun: # allow thread to run once
-        _hasRun = True
-        thread = threading.Thread(target=trackUptime, args=())
-        thread.daemon = True  # Allow thread to exit when main program does
-        thread.start()
+# @app.before_request
+# def firstRun():
+#     global _hasRun
+    # if not _hasRun: # allow thread to run once
+    #     _hasRun = True
+    #     thread = threading.Thread(target=trackUptime, args=())
+    #     thread.daemon = True  # Allow thread to exit when main program does
+    #     thread.start()
 
 # <-------------------- ROUTES --------------------->
 @app.route('/wifidog/ping', strict_slashes=False)
 @app.route('/ping', strict_slashes=False)
 def ping():
+    app.logger.info(f'{str(request.remote_addr)} accessed /ping with the url: {request.url}')
     return "Pong"
 
 # <-------------------- LOGIN ROUTE --------------------->
 @app.route('/wifidog/login/', methods=['GET', 'POST'], strict_slashes=False)
 @app.route('/login/', methods=['GET', 'POST'], strict_slashes=False)
-def login():
-    global trackUser
+def login(): 
+    current_time = datetime.datetime.now(timezone)
+    current_date = current_time.strftime('%Y-%m-%d %H:%M:%S.%f %z')
+
     # For form submission
     if request.method == 'POST':
-        uname = request.form.get('uname')
+        # gets parameters from submitted form
+        uname = request.form.get('uname') # CHANGED TO STATIC FOR TESTING 
         pword = encryptPass(request.form.get('pword'))
         package = request.form.get('package')
-        if session['token'] == None:
-            genToken(session['mac'])
-        token = session['token'] # STATIC_TOKEN
-        session['login_time'] = datetime.datetime.now(timezone)
-        app.logger.info('login time is: ' + str(session['login_time']))
+        token = session['token'] 
 
-        if not session.get('gw_address') or not session.get('gw_port'):
-            flash("Gateway information is missing")
-            return redirect(url_for('login'))
+        # for testing 
+        uname = UNAME
+        pword = UNAME
 
-        # Free 
-        if package == "Free":
-            daily_limit = getLimit(session['gw_id'], 1, 'dd', 50000000)
-            month_limit = getLimit(session['gw_id'], 1, 'mm', 1000000000)
-            session['type'] = 'One-Click Login'
-
-            # Mock data to simulate user session and transaction
-            session["uname"] = session['mac']
-            trans = {
-                "stage": "authenticated",
-                "package": "One-Click Login",
-                "uname": session['mac'],
-                "mac": session['mac'],
-                "ip": session['ip'],
-                "gw_address": session['gw_address'],
-                "gw_port": session['gw_port'],
-                "token": token,
-                "device": session['device']
-            }
-            trackUser = True
-            session.permanent = True # session is set to permanent, clear the session based on a specific requirement
-            # app.permanent_session_lifetime = datetime.timedelta(minutes=1)
-            session.modified = True
-
-            # <------ Initializes client info ------>
-            created_at = datetime.datetime.now()
-            last_modified_date = datetime.datetime.now().date()
-
-            clients[session['mac']] = [created_at, 0, 0, None, None, False, 0, last_modified_date] # <----- Stores client info in a dict
-            app.logger.info(f"client info: {clients.get(session['mac'])}")
-            login_time = datetime.datetime.now()
-            clients[session['mac']] = login_time
-            app.logger.info('login time: ' + str(clients.get(session['mac'])))
-
-            # Check if redirected to access point
-            app.logger.info(f"Redirecting to: http://{trans['gw_address']}:{trans['gw_port']}/wifidog/auth?token={trans['token']}")
-
-            # Redirect to the access point with token (Gateway Address: 1.2.3.4, Port: 2060)
-            return redirect(f"http://{trans['gw_address']}:{trans['gw_port']}/wifidog/auth?token={trans['token']}", code=302)
+        # if account is not valid then logout user
+        if not checkAccValidity(uname, pword): ## can redirect to login screen again and show error
+            return render_template('logout.html', message="Please login with a verified account to continue.", hideReturnToHome=True)
         
-    else: # For GET request
-        # Retrieving parameters and storing in session
+        # get acc details based on uname and update transaction details
+        acc = Account.query.filter_by(uname=uname).first()
+        trans = Transaction.query.filter_by(token=token).first() # get details of client's transaction via token
+        trans.acc_id = acc.id # update acc_id 
+        trans.last_active = current_date
+        db.session.commit()
+
+        if package == "Free": 
+            # check if transaction has associated free package session via acc_id
+            if Package.query.filter_by(package_type=PACKAGE_TYPE_FREE).count() > 0: # if free package exists 
+                package = Package.query.filter_by(package_type=PACKAGE_TYPE_FREE).first() # get details of free package
+                
+                if ClientSession.query.filter_by(acc_id=acc.id, package_id=package.id).count() > 0: # if account has free package session
+                    sesh = ClientSession.query.filter_by(acc_id=acc.id, package_id=package.id).order_by(ClientSession.last_modified.desc()).first() # get details of latest associated session
+                    
+                    # check if session reached limit
+                    if int(sesh.counter) >= int(sesh.limit_count) : # if session's counter is greater or equal than limit
+                        if current_time - datetime.datetime.strptime(sesh.last_modified, "%Y-%m-%d %H:%M:%S.%f %z") > datetime.timedelta(minutes=10): # if it has been more than 10 minutes after last modified 
+                            app.logger.info(f'limit for {trans.mac} has been reset. resetting session')
+                            
+                            ## reset session details
+                            sesh.limit_count = package.limit_count
+                            sesh.limit_type = package.limit_type
+                            sesh.counter = 0
+                            sesh.incoming_packets = 0
+                            sesh.outgoing_packets = 0
+                            sesh.last_modified = current_date
+                            db.session.commit()
+
+                        else: # if session limit is reached but last modified is less than cooldown period
+                            app.logger.info(f"{trans.mac} reached the limit for today. denying auth")
+                            return render_template('logout.html', message="You have already used up your free package for today.", returnLink=url_for('access'), return_text="Back")
+                    else: # for stage=authenticated where session has not hit limit
+                        app.logger.info(f'{trans.mac} currently has an active session. proceeding with auth')
+
+                # if client does not have free session created yet, initialize session
+                else: # client has no active session today: allow auth, create session and update last_active for device and associated acc
+                    app.logger.info(f'device has no free package session. creating session details')
+                    new_session = ClientSession(acc_id=acc.id, limit_count=package.limit_count, limit_type=package.limit_type, counter=0, incoming_packets= 0, outgoing_packets=0, created_on=current_time, last_modified=current_date)
+                    db.session.add(new_session)
+                    db.session.commit()
+                
+                session["uname"] = acc.uname
+                # updating transaction details
+                trans.stage = "authenticated"
+                trans.package_id = package.id
+                trans.last_active = current_date
+
+                log = AuthLog(uname=acc.uname, mac=trans.mac, gw_id=session['gw_id'], stage="authenticated")
+                db.session.add(log)
+                trans.last_active = current_date
+                db.session.commit()
+
+                session.permanent = True # session is set to permanent, clear the session based on a specific requirement
+
+                # Redirect to the access point with token (Gateway Address: 1.2.3.4, Port: 2060)
+                app.logger.info(f'authenticating {trans.mac} with wifidog auth token..')
+                return redirect(f"http://{trans.gw_address}:{trans.gw_port}/wifidog/auth?token={trans.token}", code=302)
+
+            else:
+                return render_template('logout.html', message="An error occured in availing the free daily package.", hideReturnToHome=True)
+                
+        
+    else: # For GET request, on first connection, captive portal redirects here
+
+        if request.headers.get('isHTTPS') == "no": # if request url is http then redirect to portal
+            path = str(request.url).replace(str(request.url_root),portal_url_root,1)
+            print(path)
+            return render_template('redirect.html', path=path)
+        
+        # retrieve parameters from url and store the values in session[]
         session['gw_id'] = request.args.get('gw_id', default='', type=str)
         session['gw_sn'] = request.args.get('gw_sn', default='', type=str)
         session['gw_address'] = request.args.get('gw_address', default='', type=str)
@@ -184,25 +185,47 @@ def login():
         session['apmac'] = request.args.get('apmac', default='', type=str)
         session['ssid'] = request.args.get('ssid', default='', type=str)
         session['vlanid'] = request.args.get('vlanid', default='', type=str)
-        session['token'] = request.cookies.get('token') # STATIC_TOKEN
+        session['token'] = request.cookies.get('token') 
         session['device'] = request.headers.get('User-Agent')
         session['logged_in'] = True
-
-        app.logger.info('session transaction: ' + str(dict(session)))
         session.modified = True
         
-        app.logger.info('user mac address: ' + str(session['mac']) + 'with token: ' + str(session['token']))
-
         # catch errors: if no IP, if not accessed through wifi, redirect
         if session['ip'] == '' or session['ip'] == None:
             return render_template('logout.html', message="Please connect to the portal using your WiFi settings.", hideReturnToHome=True)
+
+        # 1 transaction = 1 device
+        if Transaction.query.filter_by(mac=session['mac'], device=session['device']).count() > 0: # if device exists in transactions, get token and update last active
+            session['token'] = Transaction.query.filter_by(mac=session['mac'], device=session['device']).first().token
+
+        # if token is null, generate token for client
+        if session['token'] == None:
+            app.logger.info(f'cannot find token for session. creating new transaction')
+            genToken(session['mac']) # generate token based on client mac            
+            # create new client transaction
+            trans = Transaction(vlanid=session['vlanid'], gw_id=session['gw_id'], gw_sn=session['gw_sn'], gw_address=session['gw_address'], gw_port=session['gw_port'], ssid=session['ssid'], apmac=session['apmac'], mac=session['mac'], device=session['device'], ip=session['ip'], token=session['token'], stage="capture", total_incoming_packets=0, total_outgoing_packets=0, created_on=current_time, last_active=current_date)
+            db.session.add(trans)
+        else: 
+            # if client already has token, get and update transaction details
+            trans = Transaction.query.filter_by(token=session['token']).first()
+            trans.acc_id = None
+            trans.gw_sn = session['gw_sn']
+            trans.gw_id = session['gw_id']
+            trans.ip = session['ip']
+            trans.gw_address = session['gw_address']
+            trans.gw_port = session['gw_port']
+            trans.mac = session['mac']
+            trans.apmac = session['apmac']
+            trans.ssid = session['ssid']
+            trans.vlanid = session['vlanid']
+            trans.stage = "capture"
+            trans.last_active = current_date
+        log = AuthLog(mac=session['mac'], gw_id=session['gw_id'], stage="capture")
+        db.session.add(log)
+        db.session.commit()
+
+        return render_template('index.html')
         
-        # check if client mac already exists, if exists then redirect to logout, if doesnt exist then proceed to access
-        if (session['mac'] in clients and clients[session['mac']][5]): # if client is already existing and already hit limit, return to logout
-            return render_template('logout.html', message="You have already reached the limit for today. Please try again tomorrow.", hideReturnToHome=True)
-        else:
-            # Display the main page (index.html) when user is redirected to the captive portal
-            return render_template('index.html')
 
 # <-------------------- INSTANT ACCESS ROUTE --------------------->
 @app.route('/access/')
@@ -230,77 +253,158 @@ def access():
 @app.route('/wifidog/auth', methods=['GET', 'POST'], strict_slashes=False)
 @app.route('/auth', methods=['GET', 'POST'], strict_slashes=False)
 def auth():
-    app.logger.info('someone is accessing /auth with ip:' + str(request.remote_addr))
+    app.logger.info(f'{str(request.remote_addr)} accessed /auth with the url: {request.url}')
+    # return "Auth: 0" # emergency logout button (uncomment and wait for AP to request to server)
 
+    current_time = datetime.datetime.now(timezone)
+    current_date = current_time.strftime('%Y-%m-%d %H:%M:%S.%f %z')
+ 
+    # retrieve parameters from request url
     mac_n = request.args.get('mac', default='', type=str)
     token_n = request.args.get('token', default='', type=str)
     stage_n = request.args.get('stage', default='', type=str)
     incoming_n = request.args.get('incoming')
     outgoing_n = request.args.get('outgoing')
-    previous_incoming = clients[mac_n][6]
-    clients[mac_n][3] = incoming_n
-    clients[mac_n][4] = outgoing_n
-    incoming_n = request.args.get('incoming', default=0, type=int)
-    outgoing_n = request.args.get('outgoing', default=0, type=int)
 
-    app.logger.info(f'client mac: {mac_n} token_n: {token_n} stage_n: {stage_n} previous incoming: {previous_incoming} current incoming: {incoming_n} current outgoing: {outgoing_n}')
-    app.logger.info('token_n: ' + str(token_n) + ' stage_n: ' + str(stage_n))
+    trans = Transaction.query.filter_by(token=token_n).order_by(Transaction.created_on.desc()).first() # get transaction details from token
+
+    app.logger.info(f'client mac: {mac_n} token_n: {token_n} stage_n: {stage_n} incoming: {incoming_n} outgoing: {outgoing_n}')
 
     # Check if there is a token
     if not token_n:
+        app.logger.warning('no token provided')
         return "No authentication token provided.", 403
-
-    # Simulate a session-based transaction
-    trans = {
-        "token": session.get("token"),
-        "uname": session.get("uname", "guest"),
-        "mac": session.get("mac", "00:00:00:00"),
-        "gw_id": session.get("gw_id", "gateway"),
-        "ip": session.get("ip", "0.0.0.0"),
-        "package": session.get("package", "One-Click Login"),
-        "device": session.get("device", "unknown"),
-        "octets": session.get("octets", 0)
-    }
+    
+    # Check if stage is given
+    if not trans.stage:
+        app.logger.warning('no stage found')
+        return "No stage found.", 403
 
     app.logger.info('session transaction: ' + str(dict(session)))
-
-    # Simulate limit retrievals
-    daily_limit = 50000000  # 50 MB
-    month_limit = 1000000000  # 1 GB
-    octets = trans['octets']
-
-    # Free Access Authentication
-    if trans['package'] == "One-Click Login":
-        # Simulate tracking usage
-        new_record = incoming_n + outgoing_n
-        session['last_record'] = new_record
-        consumed_day = new_record  # Dummy tracking daily usage
-        consumed_month = new_record  # Dummy tracking monthly usage
-
-        # Check if limits exceeded (dummy)
-        if consumed_day >= daily_limit or consumed_month >= month_limit:
-            # Simulate stopping the connection (dummy)
-            return redirect(url_for('logout'))
-        else:
-            # Simulate updating interim session usage (dummy)
-            session['octets'] = incoming_n + outgoing_n
-
-    # Update session info if successful authentication
-    session['stage'] = stage_n
-    session['octets'] = incoming_n + outgoing_n
-    session['last_active'] = str(datetime.datetime.now())
-
-    if (clients[mac_n][5]): #if client hits limit, return true
-        app.logger.info(f'client {mac_n} has been disconnected')
-    # Check if client's time is up, if true return auth 0
-
-    if mac_n in clients:
-        return "Auth: 1"
-    else: 
+    
+     # <------ Logouts client ------>
+    app.logger.info(f'reached auth stage=logout checker')
+    if stage_n == "logout": # cuts connection during logout stage and updates database
+        trans.stage = "logout"
+        trans.last_active = current_date
+        acc = Account.query.filter_by(id=trans.acc_id).first()
+        log = AuthLog(uname=acc.uname, mac=trans.mac, gw_id=trans.gw_id, stage="logout")
+        db.session.add(log)
+        db.session.commit()
+        app.logger.warning(f'{trans.mac} is being logged out')
         return "Auth: 0"
-    else:
-        app.logger.info(f'client {mac_n} is authenticated')
-        return "Auth: 1"
+
+    if trans.stage == "logout":
+        app.logger.warning(f'{trans.mac} has been logged out')
+        return "Auth: 0"
+    
+    app.logger.info(f'reached auth stage=counter checker')
+    # <------ Updates counter ------>
+    if 'counter' in stage_n.lower(): 
+        # check if package type is mb or min
+        sesh = ClientSession.query.filter_by(acc_id=trans.acc_id).order_by(ClientSession.last_modified.desc()).first() # gets latest session's info from acc id
+
+        last_incoming_packets = int(sesh.incoming_packets) # store previous incoming packets for comparison
+        
+        # evaluates packets from auth
+        if int(incoming_n) != 0 and int(outgoing_n) != 0: # if neither values are 0, data is being exchanged
+
+            sesh.incoming_packets = int(sesh.incoming_packets) + int(incoming_n) # update new incoming packet
+            sesh.outgoing_packets = int(sesh.incoming_packets) + int(outgoing_n) # update new outgoing packet
+            sesh.last_modified = current_date
+            db.session.commit()
+
+            if int(incoming_n) != last_incoming_packets: # if new and old incoming packets are different, there is new activity
+                
+                if sesh.limit_type == "mb":
+                    sesh.counter = int(incoming_n) + int(outgoing_n)
+                elif sesh.limit_type == "min":
+                    sesh.counter = int(sesh.counter) + 1
+                sesh.last_modified = current_date
+                trans.last_active = current_date
+                db.session.commit()
+
+                app.logger.info(f'current {trans.mac} session counter is {sesh.counter / 1000000} mb')
+                app.logger.info(f'{trans.mac} is using their data')
+
+            else: # if new incoming and old incoming packets are the same then there is no new activity from client 
+                app.logger.info(f'{trans.mac} is idle')
+                return "Auth: 0" # disconnect client if idle
+
+        else: # if incoming and outgoing packets are 0 then client has no internet activity
+            app.logger.info(f'{trans.mac} has yet to send/receive data')
+
+        # Update session info if successful authentication
+        session['stage'] = stage_n
+
+        # evaluates if client should still be connected
+        package_limit = sesh.limit_count
+        if sesh.limit_type == "mb":
+            package_limit = sesh.limit_count * 1000000
+        if (sesh.counter >= package_limit): #if client hits limit then update status limit and disconnect
+            sesh.last_modified=current_date
+            db.session.commit()
+            app.logger.info(f'informed {str(request.remote_addr)} to disconnect {mac_n}')
+            return "Auth: 0"
+        else:
+            app.logger.info(f'informed {str(request.remote_addr)} to keep {mac_n} connected')
+            return "Auth: 1"
+    
+    ## RECHECK LOGIC 
+    app.logger.info(f'reached auth one-click login checker')
+    # <------ Authenticates client after one-click login ------>
+    package_id = Package.query.filter_by(package_type=PACKAGE_TYPE_FREE).first().id # get package id of free package
+    if int(trans.package_id) == int(package_id): # if transaction package is one-click login, check if sesh hit limit
+        sesh = ClientSession.query.filter_by(acc_id=trans.acc_id).first() # get details of session associated with transaction 
+        if int(sesh.counter) > int(sesh.limit_count):
+            app.logger.warning(f'{mac_n} has reached limit. logging out client')
+            return "Auth: 0"
+        else:
+            app.logger.info(f'{mac_n} has not reached limit. client is authenticated')
+            return "Auth: 1"
+
+    app.logger.warning('reached the end of /auth')
+    return "Auth: 0"
+
+
+# <-------------------- DATA ADJUSTMENT ROUTE --------------------->
+### CAN ADD LOGS HERE FOR TRACKING
+@app.route('/data', methods=['GET', 'POST'], strict_slashes=False)
+def adjust(): 
+    acc_id = request.form.get('acc_id')
+    # Check if token is included in request
+    if not acc_id:
+        app.logger.warning('no acc id provided')
+        return "Request parameters are incomplete.", 403
+
+    # For data adjustment 
+    if request.method == 'POST':
+        number = request.form.get('number')
+        # Check if parameter exists
+        if not number:
+            app.logger.warning('no number provided')
+            return "Request parameters are incomplete.", 403
+
+        if ClientSession.query.filter_by(acc_id=acc_id).count() > 0: # check if session exists 
+            sesh = ClientSession.query.filter_by(acc_id=acc_id).first() # get details of latest associated session
+            addend = int(number)
+
+            if sesh.limit_type == "mb":
+                addend = addend * 1000000
+            sesh.limit_count = int(sesh.limit_count) + addend
+            db.session.commit()
+        else:
+            app.logger.warning('cannot find any session with the given id')
+            return "Session not found.", 403
+            
+    else: # FOR GET, retrieve limit type of session from token
+        if ClientSession.query.filter_by(acc_id=acc_id).count() > 0: # check if session exists 
+            sesh = ClientSession.query.filter_by(acc_id=acc_id).first() # get details of latest associated 
+            return sesh.limit_type # returns limit type of session associated with token
+        else:
+            app.logger.warning('cannot find any session with the given id')
+            return "Session not found.", 403
+
 
 # <-------------------- PORTAL (DASHBOARD) ROUTE --------------------->
 @app.route('/portal/') 
@@ -317,7 +421,7 @@ def portal():
             "mac": session.get('mac', '00:00:00:00'),
             "device": session.get('device', 'unknown'),
             "package": "One-Click Login",  # Assuming "One-Click Login" for simplicity
-            "date_modified": today
+            "last_active": today
         }
         # If we have a valid "transaction" in session, set the package type
         if trans:
@@ -345,49 +449,40 @@ def portal():
     if session["type"] == "One-Click Login":
         display_type = "Level One"
         daily_limit = 50000000  # 50 MB daily limit
-        month_limit = 1000000000  # 1 GB monthly limit
         
         # Simulate device data usage
         device = {
             "mac": session.get("mac", "00:00:00:00"),
             "free_data": session.get("free_data", 10000000),  # Simulate 10 MB used
-            "month_data": session.get("month_data", 200000000),  # Simulate 200 MB used
         }
 
         # Format the used data and remaining data limits
         daily_used = format_limit(device["free_data"] / 1000000)
-        monthly_used = format_limit(device["month_data"] / 1000000)
         day_rem = daily_limit - device["free_data"] if daily_limit - device["free_data"] >= 0 else 0
-        month_rem = month_limit - device["month_data"] if month_limit - device["month_data"] >= 0 else 0
         daily_remaining = format_limit(day_rem / 1000000)
-        monthly_remaining = format_limit(month_rem / 1000000)
     
     # Format limits for display
     ddd_limit = format_limit(daily_limit / 1000000)
-    mmm_limit = format_limit(month_limit / 1000000)
     
     # Simulate fetching announcements (could be hardcoded or from another service)
     announcements = ["Welcome to Apollo Wi-Fi!", "Service maintenance on the 15th."]
 
     # Displays the time elapsed since user login
-    if 'logged_in' in session:
-        login_time = session['login_time']
-        logged_in_duration = datetime.datetime.now(timezone) - login_time
-        time_remaining = datetime.timedelta(minutes=1) - logged_in_duration
-        if logged_in_duration > datetime.timedelta(minutes=1):
-            return redirect(url_for('logout'))
+    # if 'logged_in' in session:
+    #     login_time = session['login_time']
+    #     logged_in_duration = datetime.datetime.now(timezone) - login_time
+    #     time_remaining = datetime.timedelta(minutes=5) - logged_in_duration
+    #     if logged_in_duration > datetime.timedelta(minutes=5):
+    #         return redirect(url_for('logout'))
 
     return render_template( 
         'portal.html',
         daily_used=daily_used,
-        monthly_used=monthly_used,
-        time_used=logged_in_duration,
+        # time_used=logged_in_duration,
         daily_remaining=daily_remaining,
-        monthly_remaining=monthly_remaining,
-        time_remaining=time_remaining,
+        # time_remaining=time_remaining,
         daily_limit=ddd_limit,
-        monthly_limit=mmm_limit,
-        time_limit='1 minute',
+        time_limit='5 minutes',
         announcements=announcements,
         display_type=display_type,
         path=path
@@ -406,7 +501,7 @@ def logout():
     session.clear()
     print('session after clear: ' + str(dict(session)))
 
-    app.logger.info('user has been logged out...')
+    app.logger.info('user has been redirected to log out page...')
     flash("You have been logged out.")
     return render_template('logout.html', message="You have been logged out.")
 
