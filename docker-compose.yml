@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  flask_app:
+    container_name: zeep
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "5000:5000" # Maps port 5000 on the host to port 5000 in the container
+    environment:
+      FLASK_APP: app.py
+      #FLASK_ENV: production
+    volumes:
+      - .:/app
