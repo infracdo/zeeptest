@@ -13,3 +13,35 @@ services:
       #FLASK_ENV: production
     volumes:
       - .:/app
+  
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_AUTH_LDAP_ENABLED=true
+      - GF_AUTH_LDAP_CONFIG_FILE=/usr/share/grafana/conf/ldap.toml
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/ldap.toml:/usr/share/grafana/conf/ldap.toml
+
+  postgres_db:
+    image: postgres:latest
+    container_name: psql
+    restart: always
+    environment:
+      - POSTGRES_USER=wildweasel
+      - POSTGRES_PASSWORD=ap0ll0ap0ll0
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_db:/var/lib/postgresql/data
+      - ./wildweasel_dump.sql:/docker-entrypoint-initdb.d/wildweasel_dump.sql
+
+volumes:
+  postgres_db:
+    driver: local
+  grafana_data:
