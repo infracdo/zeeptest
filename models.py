@@ -28,6 +28,49 @@ class BaseModel(db.Model):
             column: value if not isinstance(value, datetime.date) else value.strftime('%Y-%m-%d')
             for column, value in self._to_dict().items()
         }
+    
+
+class Subscriber(BaseModel, db.Model):
+    """Model for the account table"""
+    __bind_key__ = 'mysql'
+    __tablename__ = 'new_subscriber'
+
+    subscriber_id = db.Column(db.BigInteger, primary_key=True)
+    account_Number = db.Column(db.String)
+    bucket_id = db.Column(db.String)
+    ip_assigned = db.Column(db.String)
+    subscription_name = db.Column(db.String)
+    modem_mac_address = db.Column(db.String)
+    onu_serial_number = db.Column(db.String)
+    package_type = db.Column(db.String)
+    package_id = db.Column(db.String)
+    provision_type = db.Column(db.String)
+    area_id = db.Column(db.String)
+    subscriber_Name = db.Column(db.String)
+    subscriber_status = db.Column(db.String)
+    olt_ip = db.Column(db.String)
+    olt_downstream = db.Column(db.String)
+    olt_upstream = db.Column(db.String)
+    ssid_name = db.Column(db.String)
+
+    def __init__(self, **kwargs):
+        self.subscriber_id = kwargs.get('subscriber_id')
+        self.account_Number = kwargs.get('account_Number')
+        self.bucket_id = kwargs.get('bucket_id')
+        self.ip_assigned = kwargs.get('ip_assigned')
+        self.subscription_name = kwargs.get('subscription_name')
+        self.modem_mac_address = kwargs.get('modem_mac_address')
+        self.onu_serial_number = kwargs.get('onu_serial_number')
+        self.package_type = kwargs.get('package_type')
+        self.package_id = kwargs.get('package_id')
+        self.provision_type = kwargs.get('provision_type')
+        self.area_id = kwargs.get('area_id')
+        self.subscriber_Name = kwargs.get('subscriber_Name')
+        self.subscriber_status = kwargs.get('subscriber_status')
+        self.olt_ip = kwargs.get('olt_ip')
+        self.olt_downstream = kwargs.get('olt_downstream')
+        self.olt_upstream = kwargs.get('olt_upstream')
+        self.ssid_name = kwargs.get('ssid_name')
 
 
 class Account(BaseModel, db.Model):
@@ -35,16 +78,14 @@ class Account(BaseModel, db.Model):
     __tablename__ = 'acc_details'
 
     id = db.Column(db.Integer, primary_key=True)
-    uname = db.Column(db.String)
-    pword = db.Column(db.String)
+    account_Number = db.Column(db.String)
     total_incoming_packets = db.Column(db.Float)
     total_outgoing_packets = db.Column(db.Float)
     last_active = db.Column(db.String)
 
     def __init__(self, **kwargs):
         self.id = kwargs.get('id')
-        self.uname = kwargs.get('uname')
-        self.pword = kwargs.get('pword')
+        self.account_Number = kwargs.get('account_Number')
         self.total_incoming_packets = kwargs.get('total_incoming_packets')
         self.total_outgoing_packets = kwargs.get('total_outgoing_packets')
         self.last_active = kwargs.get('last_active')
@@ -55,8 +96,8 @@ class Transaction(BaseModel, db.Model):
     __tablename__ = 'acc_transactions' # previously transactions
 
     id = db.Column(db.Integer, primary_key=True)
-    acc_id = db.Column(db.Integer)
-    package_id = db.Column(db.Integer)
+    account_Number = db.Column(db.String)
+    package = db.Column(db.String)
     vlanid = db.Column(db.String)
     gw_id = db.Column(db.String)
     gw_sn = db.Column(db.String)
@@ -76,8 +117,8 @@ class Transaction(BaseModel, db.Model):
 
     def __init__(self, **kwargs):
         self.id = kwargs.get('id')
-        self.acc_id = kwargs.get('acc_id')
-        self.package_id = kwargs.get('package_id')
+        self.account_Number = kwargs.get('account_Number')
+        self.package = kwargs.get('package')
         self.vlanid = kwargs.get('vlanid')
         self.gw_id = kwargs.get('gw_id')
         self.gw_sn = kwargs.get('gw_sn')
@@ -95,13 +136,14 @@ class Transaction(BaseModel, db.Model):
         self.created_on = kwargs.get('created_on')
         self.last_active = kwargs.get('last_active')
         
+        
 class ClientSession(BaseModel, db.Model):
     """Model for the session tracker table"""
     __tablename__ = 'acc_sessions' 
 
     id = db.Column(db.Integer, primary_key=True)
-    acc_id = db.Column(db.Integer)
-    package_id = db.Column(db.Integer)
+    account_Number = db.Column(db.String) # if free then client id is transaction id else if paid then client id is account id
+    package = db.Column(db.String)
     limit_count = db.Column(db.Integer)
     limit_type = db.Column(db.String)
     counter = db.Column(db.Integer)
@@ -112,8 +154,8 @@ class ClientSession(BaseModel, db.Model):
 
     def __init__(self, **kwargs):
         self.id = kwargs.get('id')
-        self.acc_id = kwargs.get('acc_id')
-        self.package_id = kwargs.get('package_id')
+        self.account_Number = kwargs.get('account_Number')
+        self.package = kwargs.get('package')
         self.limit_count = kwargs.get('limit_count')
         self.limit_type = kwargs.get('limit_type')
         self.counter = kwargs.get('counter')
@@ -152,7 +194,7 @@ class AuthLog(db.Model):
     __tablename__ = 'acc_auth_logs' #previously access_auth_logs
 
     id = db.Column(db.Integer, primary_key=True)
-    uname = db.Column(db.String)
+    account_Number = db.Column(db.String)
     mac = db.Column(db.String)
     gw_id = db.Column(db.String)
     stage = db.Column(db.String)
