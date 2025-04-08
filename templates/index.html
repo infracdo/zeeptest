@@ -4,24 +4,35 @@
 {% block content %}
 
 <div class="homepage-container">
-    <img src="/static/images/free_wifi.png" alt="Free wifi for all logo" class="freewifi-logo">
-    <h2>A PROJECT OF</h2>
-
-    <div class="company-logos">
+    <div style="display: flex;flex-direction: column; justify-content: center;align-items: center;min-height: 5vh;"></div>
+    <div style="display: flex;flex-direction: column; justify-content: center;align-items: center;min-height: 20vh;">
+        <img src="/static/images/free_wifi.png" alt="Free wifi for all logo" class="freewifi-logo">
+        <h2>A PROJECT OF</h2>
+    </div>
+    <div class="company-logos"
+        style="display: flex;flex-direction: column; justify-content: center;align-items: center;min-height: 20vh;">
         <img src="/static/images/dict2.png" alt="DICT logo" class="dict-logo">
         <img src="/static/images/apollo.png" alt="ApolloTech logo" class="apollotech-logo">
     </div>
+    <br>
+    <!-- FREE ACCESS -->
+    <div style="display: grid;place-items: center;min-height: 20vh;">
+        <a href="{{ url_for('access') }}">
+            <button class="enter-btn" style="min-width: 120px;">FREE ACCESS</button>
+        </a>
+    </div>
+    <!-- <br>
+    <br> -->
+    <!-- KEYCLOAK LOGIN ACCESS, TODO; SHOW LOGIN FORM AND CAPTURE USER DETAILS -->
+    <!-- <a href="{{ url_for('keycloak') }}">
+        <button class="enter-btn">KEYCLOAK SIGN IN</button>
+    </a> -->
 
-    <a href="{{ url_for('access') }}">
-        <button class="enter-btn">ENTER</button>
-    </a>
+    <h2></h2>
 
-    <footer>
-        Apollo Technologies, Inc. © 2024 | <a href="">Contact Us</a>
-    </footer>
 </div>
+<footer>
+    Apollo Technologies, Inc. © 2024 | <a href="">Contact Us</a>
+</footer>
 
 {% endblock %}
-
-
-

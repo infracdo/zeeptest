@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Keycloak Login{% endblock %}
+
+{% block content %}
+
+<!-- KEYCLOAK LOGIN ACCESS, TODO; SHOW LOGIN FORM AND CAPTURE USER DETAILS -->
+<div class="homepage-container">
+  <div style="height: 20vh;"></div>
+
+  <h2>SIGN IN WITH KEYCLOAK</h2>
+
+  <div class="access-buttons"
+    style="display: flex;flex-direction: column; justify-content: center;align-items: center;height: 40vh;">
+    <form action="/keycloak/" method="post" id="keycloakForm">
+      <label for="username">Username:</label>
+      <input type="text" name="uname" id="username" required autofocus />
+      <br />
+      <label for="password">Password:</label>
+      <input type="password" name="pword" id="password" required />
+      <!-- <input type="hidden" name="package" value="Free" /> -->
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+      <br />
+      <br />
+      <div style="display: grid; row-gap: 0.5vh;"><label>
+          <input type="checkbox" id="otpCheckbox" name="otpCheckbox" style="align-self: left;"> I have OTP
+        </label>
+      <div class="otp-container" id="otpContainer" style="display: none;">
+          <input type="text" name="otp" id="otp" placeholder="Enter OTP..." style="text-align: center; width: 50%;" />
+        </div>
+      </div>
+
+      <p id="error-message" style="color: red;">{{ message if message else "" }}</p>
+      <button type="submit" class="enter-btn">
+        SIGN IN
+      </button>
+    </form>
+  </div>
+  <br /><br />
+  <br /><br />
+  <!-- <h4>{{ device }} / {{ ip_address }}</h4> -->
+
+</div>
+
+<footer>
+  Apollo Technologies, Inc. © 2024 | <a href="">Contact Us</a>
+</footer>
+
+{% endblock %}
