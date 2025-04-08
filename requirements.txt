@@ -26,7 +26,7 @@ hstspreload==2024.10.1
 httpcore==0.9.1
 httpx==0.13.3
 hyperframe==5.2.0
-idna==3.10 # incompatible with httpx
+idna==3.10
 importlib-metadata==8.5.0
 itsdangerous==2.2.0
 jinja2==3.1.4
@@ -50,7 +50,9 @@ SQLAlchemy==2.0.36
 tomli==2.0.2
 typing-extensions==4.12.2
 tzlocal==5.2
+ua-parser==0.18.0
 urllib3==2.2.3
+user-agents==2.2.0
 virtualenv==20.26.1
 werkzeug==3.0.4
 wtforms==3.1.2

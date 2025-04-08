@@ -9,12 +9,15 @@ from dateutil import parser
 import pytz
 from api import api_blueprint
 from user_agents import parse
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = Flask(__name__)
 csrf = CSRFProtect(app)
 app.secret_key = os.environ.get("APP_SECRET_KEY").encode()
 # Import configurations from .env file
-app.config.from_object("config")
+# app.config.from_object("config")
 
 timezone = pytz.timezone('Asia/Manila')
 
