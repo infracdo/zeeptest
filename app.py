@@ -30,7 +30,7 @@ POSTGRES = {
     'port': '5432',
 }
 
-portal_url_root = "http://192.168.90.151:8080/"
+portal_url_root = "http://202.60.11.187:8080/"
 
 app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://%(user)s:%(pw)s@%(host)s:%(port)s/%(db)s' % POSTGRES
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
