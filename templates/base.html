@@ -5,6 +5,41 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}{% endblock %}</title>
     <link rel="stylesheet" href="/static/css/styles.css">
+    <script>
+        // This is the callback function
+        function onKeycloakLoginResponse(data) {
+            if (data.status === "failed") {
+                document.getElementById("error-message").innerText = data.message;
+                // Reset form fields
+                document.getElementById("username").value = '';
+                document.getElementById("password").value = '';
+                // Focus on the username field after clearing it
+                document.getElementById("username").focus();
+            } else if (data.status === "redirect" && data.redirect_url) {
+                window.location.href = data.redirect_url;
+            }
+        }
+
+        // This function is called when the form is submitted
+        async function submitKeycloakForm(event) {
+            event.preventDefault(); // Prevent normal form submission
+
+            const form = document.getElementById("keycloakForm");
+            const formData = new FormData(form);
+
+            // Use fetch() to send the form data
+            await fetch('/keycloak', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())  // Parse the response as JSON
+            .then(data => onKeycloakLoginResponse(data)); // Call the callback with the response
+        }
+
+        window.onload = function() {
+            document.querySelector("#keycloakForm").addEventListener("submit", submitKeycloakForm);
+        };
+    </script>
 </head>
 <body>
     <div class="container">
@@ -13,4 +48,5 @@
         {% endblock %}
     </div>
 </body>
+
 </html>
