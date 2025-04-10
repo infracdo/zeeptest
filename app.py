@@ -715,7 +715,7 @@ def keycloaksite():
     keycloak_url = "https://wcdssi.apolloglobal.net:8443/auth/realms/workconnect-test/protocol/openid-connect/auth"
     
     # The client details
-    client_id = "test-zeep-frontend"
+    client_id = "test-zeep-client"
     redirect_uri = "http://localhost/access" # bug here, localhost cannot be found
     
     # Construct the URL for the Keycloak login page
