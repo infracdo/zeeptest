@@ -285,10 +285,13 @@ def login():
         app.logger.info('client details captured')
 
         if KEYCLOAK_SSID in session['ssid']:
-            # return redirect(url_for('keycloak'))
-            return redirect(url_for('keycloaksite'))
+            return redirect(url_for('keycloak'))
+            # return redirect(url_for('keycloaksite'))
         
-        return render_template('index.html')
+        # Fetch recent logins by calling function
+        login_history = get_recent_logins(account_number)
+        return render_template('index.html', login_history=login_history)
+        # return render_template('index.html')
         
 
 # <-------------------- INSTANT ACCESS ROUTE --------------------->
@@ -695,6 +698,10 @@ def portal():
     #     if logged_in_duration > datetime.timedelta(minutes=5):
     #         return redirect(url_for('logout'))
 
+    login_history = []
+    if session.get('uname'):
+        login_history = get_recent_logins(session['uname'])
+
     return render_template( 
         'portal.html',
         daily_used=daily_used,
@@ -705,7 +712,8 @@ def portal():
         time_limit=f'N/A',
         announcements=announcements,
         display_type=display_type,
-        path=path
+        path=path,
+        login_history=login_history
     )
 
 # <-------------------- KEYCLOAK LOGIN ROUTE --------------------->
@@ -716,8 +724,7 @@ def keycloaksite():
     
     # The client details
     client_id = "test-zeep-client"
-    # redirect_uri = "http://localhost/access" # bug here, localhost cannot be found
-    redirect_uri = "http://202.60.11.187:8080/access"
+    redirect_uri = "http://localhost/access" # bug here, localhost cannot be found
     
     # Construct the URL for the Keycloak login page
     auth_url = f"{keycloak_url}?client_id={client_id}&redirect_uri={redirect_uri}&response_type=code&scope=openid"
@@ -744,12 +751,14 @@ def keycloak():
         # gets parameters from submitted form
         uname = request.form.get('uname', '').strip()
         pword = request.form.get('pword') # encryptPass(request.form.get('pword'))
+        otp = request.form.get('otp') 
 
         payload = {
             'client_id': KEYCLOAK_CLIENT,
             'client_secret': KEYCLOAK_SECRET,
             'username': uname,
             'password': pword,
+            'otp': otp,
             'grant_type': 'password',
         }
 
@@ -854,6 +863,50 @@ def logout():
         return render_template('logout.html', message="Client session token not found. Logout failed.")
 
     # session.clear()
+
+# <-------------------- FUNCTIONS --------------------->
+def get_recent_logins(account_number, limit=3):
+    """Fetch recent login activity from transactions table"""
+    transactions = Transaction.query.filter_by(
+        account_Number = account_number
+    ).order_by(
+        Transaction.last_active.desc()
+    ).limit(limit).all()
+
+    login_history = []
+    for trans in transactions:
+        # Parse the last_active string into a datetime object
+        try:
+            last_active = datetime.datetime.strptime(
+                trans.last_active,
+                '%Y-%m-%d %H:%M:%S.%f %z'
+            )
+        except:
+            # Fallback if format doesn't match
+            last_active = datetime.datetime.now(timezone)
+        
+        login_history.append({
+            'username': account_number,
+            'mac_address': trans.mac,
+            'time_ago': pretty_date(last_active)
+        })
+    return login_history
+
+def pretty_date(time):
+    """Convert datetime to human-readable format"""
+    now = datetime.datetime.now(timezone)
+    diff = now - time
+
+    if diff.days > 0:
+        return f"{diff.days} day{'s' if diff.days > 1 else ''} ago"
+    elif diff.seconds > 3600:
+        hours = diff.seconds // 3600
+        return f"{hours} hour{'s' if hours > 1 else ''} ago"
+    elif diff.seconds > 60:
+        minutes = diff.seconds // 60
+        return f"{minutes} minute{'s' if minutes > 1 else ''} ago"
+    else:
+        return "just now"
 
 
 if __name__ == '__main__':

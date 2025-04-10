@@ -21,21 +21,27 @@
       
     </div>
     <br />
-    <div class="content-container">
+    <div class="portal-container">
       <img
         src="/static/images/apollo.png"
-        class="apollo-logo"
+        style="width: 12vw;"
       />
-      <section class="welcome">
-        <br />
-        <h2>Welcome</h2>
-        <p>
-          Username: <b>{{ session["uname"] }}</b>
-        </p>
-        <p>
-          IP Address: <b>{{ session["ip"] }}</b>
-        </p>
-      </section>
+ 
+      <div style="display: flex; flex-direction: column; justify-content: center; align-items: center;">
+        <!-- Displays welcome text with username -->
+        <h1>WELCOME, {{ session["uname"] }}!</h1>
+
+        <!-- Displays the username and IP address -->
+        <div style="display: flex; flex-direction: row; gap: 2em;">
+          <p>
+            Username: <b>{{ session["uname"] }}</b>
+          </p>
+          <p>
+            IP Address: <b>{{ session["ip"] }}</b>
+          </p>
+        </div>
+      </div>
+
       <table class="pure-table pure-table-horizontal">
         <thead>
             <tr>
@@ -68,11 +74,43 @@
           </tr>
         </tbody>
       </table>
-      <br />
-      <a href="{{ path }}">
+
+      <!-- Display last logins of the user -->
+      {% if login_history %}
+      <div class="recent-activity-container">
+        <div class="login-history">
+          <h3 class="login-title">Logins</h3>
+          {% for login in login_history %}
+          <div class="login-entry">
+            <p>
+              <strong>{{ login.username }}</strong> - {{ login.mac_address }}<br>
+              Last active {{ login.time_ago }}
+            </p>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- {% if login_history %}
+      <div class="login_history">
+        <h3>Recent Activity</h3>
+        {% for login in login_history %}
+        <div class="login_entry">
+          <p>
+            <strong>{{ login.username }}</strong> - {{ login.mac_address }}<br>
+            Last active {{ login.time_ago }}
+          </p>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %} -->
+
+      <!-- <br /> -->
+      <!-- <a href="{{ path }}">
         <button class="enter-btn next-btn">Next</button>
-        </a>
-      <br /><br />
+        </a> -->
+      <!-- <br /><br />
       {% if announcements %}
       <br /><br />
       <section>
@@ -84,11 +122,12 @@
       </section>
       <br /><br />
       {% endif %}
-      <br /><br />
+      <br /><br /> -->
+
+      <!-- Page footer -->
       <footer>
         Apollo Technologies, Inc. © 2024 | <a href="">Contact Us</a>
       </footer>
-    
     </div>
   </body>
 
