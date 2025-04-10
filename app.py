@@ -9,12 +9,15 @@ from dateutil import parser
 import pytz
 from api import api_blueprint
 from user_agents import parse
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = Flask(__name__)
 csrf = CSRFProtect(app)
 app.secret_key = os.environ.get("APP_SECRET_KEY").encode()
 # Import configurations from .env file
-app.config.from_object("config")
+# app.config.from_object("config")
 
 timezone = pytz.timezone('Asia/Manila')
 
@@ -712,8 +715,9 @@ def keycloaksite():
     keycloak_url = "https://wcdssi.apolloglobal.net:8443/auth/realms/workconnect-test/protocol/openid-connect/auth"
     
     # The client details
-    client_id = "test-zeep-frontend"
-    redirect_uri = "http://localhost/access" # bug here, localhost cannot be found
+    client_id = "test-zeep-client"
+    # redirect_uri = "http://localhost/access" # bug here, localhost cannot be found
+    redirect_uri = "http://202.60.11.187:8080/access"
     
     # Construct the URL for the Keycloak login page
     auth_url = f"{keycloak_url}?client_id={client_id}&redirect_uri={redirect_uri}&response_type=code&scope=openid"
