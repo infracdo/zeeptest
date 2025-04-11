@@ -29,7 +29,7 @@
  
       <div style="display: flex; flex-direction: column; justify-content: center; align-items: center;">
         <!-- Displays welcome text with username -->
-        <h1>WELCOME, {{ session["uname"] }}!</h1>
+        <h1>WELCOME, {{ session["uname"].split('@')[0] if '@' in session["uname"] else session["uname"] }}!</h1>
 
         <!-- Displays the username and IP address -->
         <div style="display: flex; flex-direction: row; gap: 2em;">
@@ -42,7 +42,7 @@
         </div>
       </div>
 
-      <table class="pure-table pure-table-horizontal">
+      <!-- <table class="pure-table pure-table-horizontal">
         <thead>
             <tr>
             <th>Bucket</th>
@@ -73,7 +73,7 @@
             <td id="remaining_time">{{time_remaining}}</td>
           </tr>
         </tbody>
-      </table>
+      </table> -->
 
       <!-- Display last logins of the user -->
       {% if login_history %}
@@ -83,8 +83,13 @@
           {% for login in login_history %}
           <div class="login-entry">
             <p>
-              <strong>{{ login.username }}</strong> - {{ login.mac_address }}<br>
-              Last active {{ login.time_ago }}
+              <strong>{{ login.username }}</strong> • {{ login.mac_address }} • {{ login.ip_address }}<br>
+              Last active
+              {% if login.time_ago == "just now" %}
+                <span style="color: green; font-weight: bold;">{{ login.time_ago }}</span>
+              {% else %}
+                <span>{{ login.time_ago }}</span>
+              {% endif %}
             </p>
           </div>
           {% endfor %}

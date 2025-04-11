@@ -865,7 +865,7 @@ def logout():
     # session.clear()
 
 # <-------------------- FUNCTIONS --------------------->
-def get_recent_logins(account_number, limit=3):
+def get_recent_logins(account_number, limit=5):
     """Fetch recent login activity from transactions table"""
     transactions = Transaction.query.filter_by(
         account_Number = account_number
@@ -888,7 +888,8 @@ def get_recent_logins(account_number, limit=3):
         login_history.append({
             'username': account_number,
             'mac_address': trans.mac,
-            'time_ago': pretty_date(last_active)
+            'time_ago': pretty_date(last_active),
+            'ip_address': trans.ip
         })
     return login_history
 
