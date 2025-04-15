@@ -254,6 +254,7 @@ def login():
         if Transaction.query.filter_by(mac=session['mac'], device=session['device']).count() > 0: # if device exists in transactions, get token and update last active
             session['token'] = Transaction.query.filter_by(mac=session['mac'], device=session['device']).first().token
             app.logger.info(f'found transaction for current client')
+            app.logger.info(f"TOKEN IN /login (fetched from db): {session['token']}")
 
         # if token is null, generate token for client
         if session['token'] == None:
@@ -262,6 +263,7 @@ def login():
             # create new client transaction
             trans = Transaction(vlanid=session['vlanid'], gw_id=session['gw_id'], gw_sn=session['gw_sn'], gw_address=session['gw_address'], gw_port=session['gw_port'], ssid=session['ssid'], apmac=session['apmac'], mac=session['mac'], device=session['device'], ip=session['ip'], token=session['token'], stage="capture", total_incoming_packets=0, total_outgoing_packets=0, created_on=current_time, last_active=current_date)
             db.session.add(trans)
+            app.logger.info(f"TOKEN IN /login (generated token): {session['token']}")
         else: 
             # if client already has token, update transaction details
             trans = Transaction.query.filter_by(token=session['token']).first()
@@ -278,6 +280,7 @@ def login():
             trans.last_active = current_date
             db.session.commit()
             app.logger.info(f'updating transaction details.')
+            app.logger.info(f"TOKEN IN /login (already has token): {session['token']}")
 
         log = AuthLog(mac=session['mac'], gw_id=session['gw_id'], stage="capture")
         db.session.add(log)
@@ -348,6 +351,7 @@ def auth():
         app.logger.warning('transaction not found')
         return "No transaction was found.", 403
 
+    app.logger.info(f"TOKEN IN /auth: {token_n}")
     trans = Transaction.query.filter_by(token=token_n).first() # get transactions details (1 transaction per device)
     app.logger.info(f'client mac: {mac_n} token_n: {token_n} stage_n: {stage_n} incoming: {incoming_n} outgoing: {outgoing_n}')
     
@@ -766,6 +770,7 @@ def keycloak():
             response = requests.post(TOKEN_URL, data=payload)
             token_data = response.json()
             app.logger.info(jsonify({"response body": token_data}))
+            app.logger.info(f'KEYCLOAK RESPONSE: {token_data}')
 
         except requests.exceptions.RequestException as e: # return an error if the request fails
             app.logger.info(jsonify({"error": "Authentication failed", "details": str(e)}))
@@ -786,7 +791,8 @@ def keycloak():
         
         if response.status_code == 200: # if response is ok, allow internet access
             package = PKG_UNLI # unlimited for keycloak login
-            token = session['token'] 
+            token = session['token']
+            app.logger.info(f"TOKEN IN /keycloak: {session['token']}")
 
             trans = Transaction.query.filter_by(token=token).first() # get transaction details via token
             trans.last_active = current_date
@@ -827,6 +833,7 @@ def keycloak():
             session.permanent = True # session persists even after browser closes
 
             app.logger.info(f'authenticating {trans.mac} with wifidog auth token: http://{trans.gw_address}:{trans.gw_port}/wifidog/auth?token={trans.token}')
+            app.logger.info(f"TOKEN IN /keycloak (used token for redirection): {session['token']}")
             # return redirect(f"http://{trans.gw_address}:{trans.gw_port}/wifidog/auth?token={trans.token}", code=302)
             return jsonify({"status": "redirect", "redirect_url": f"http://{trans.gw_address}:{trans.gw_port}/wifidog/auth?token={trans.token}"})
          # client is given internet access 

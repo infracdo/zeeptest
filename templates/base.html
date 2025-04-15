@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -32,15 +33,26 @@
                 method: 'POST',
                 body: formData
             })
-            .then(response => response.json())  // Parse the response as JSON
-            .then(data => onKeycloakLoginResponse(data)); // Call the callback with the response
+                .then(response => response.json())  // Parse the response as JSON
+                .then(data => onKeycloakLoginResponse(data)); // Call the callback with the response
         }
 
-        window.onload = function() {
+        window.onload = function () {
+            const otpCheckbox = document.getElementById('otpCheckbox');
+            const otpContainer = document.getElementById('otpContainer');
+
+            otpCheckbox.addEventListener('change', function () {
+                if (otpCheckbox.checked) {
+                    otpContainer.style.display = 'block';  // Show OTP field
+                } else {
+                    otpContainer.style.display = 'none';   // Hide OTP field
+                }
+            });
             document.querySelector("#keycloakForm").addEventListener("submit", submitKeycloakForm);
         };
     </script>
 </head>
+
 <body>
     <div class="container">
         {% block content %}
