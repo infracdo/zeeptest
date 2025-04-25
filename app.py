@@ -3,7 +3,7 @@ from flask_wtf.csrf import CSRFProtect, generate_csrf
 from flask_cors import CORS
 import os, datetime, hashlib, hmac, threading, time, requests, json
 from sqlalchemy import func, text
-from models import db, Transaction, AuthLog, ClientSession, Subscriber
+from models import db, Transaction, AuthLog, ClientSession, Subscriber, HiveClient
 from tzlocal import get_localzone
 from dateutil import parser
 import pytz
@@ -32,7 +32,7 @@ PAID_DATA_TYPE = os.environ.get("PAID_DATA_TYPE")
 ACC_DEVICE_LIMIT = int(os.environ.get("ACC_DEVICE_LIMIT"))
 ALLOW_MULTIPLE_DEVICES = int(os.environ.get("ALLOW_MULTIPLE_DEVICES"))
 
-ACCOUNT_NUMBER = "RES-201902-1" # static for testing login with account number, remove before prod
+ACCOUNT_NUMBER = "RES-201901-16" # static for testing mobile login with account number, remove before prod
 
 POSTGRES = json.loads(os.environ.get("POSTGRES"))
 
@@ -80,16 +80,27 @@ def encryptPass(password):
 # For future purposes in setting limitations
 def getLimit(gw_id, user_id, type_, default_limit):
     return default_limit
+    
+def checkDbAvailability():
+    try:
+        with db.get_engine(app, bind='mysql').connect() as conn: # Use the 'mysql' bind to connect and run a lightweight query
+            conn.execute(text("SELECT 1"))  # Simple ping query
+            return True
+    except Exception as e:
+        app.logger.error(f"An unexpected error occurred: {str(e)}")
+        return False
 
 # For checking account status
-def checkAccountStatus(account_number):
-    
-    result = Subscriber.query.filter_by(account_Number=account_number).first()
-    
-    if result: # If account exists, return the subscriber status, else return "NOT FOUND"
-        return result.subscriber_status
-    
-    return "NOT FOUND"
+def checkAccountStatus(account_no):
+    status = "NOT FOUND"
+    if checkDbAvailability():
+        result = Subscriber.query.filter_by(account_Number=account_no).first()
+        if result: # If account exists, return the subscriber status
+            status = result.subscriber_status
+        result = HiveClient.query.filter_by(account_no=account_no).first()
+        if result: # If account exists, return the client status, else return "NOT FOUND"
+            status = result.status
+    return status
 
 # <-------------------- ROUTES --------------------->
 @app.route('/wifidog/ping', strict_slashes=False)
@@ -105,6 +116,14 @@ def check(site):
         return f"Ping to {site} successful!"
     else:
         return f"Ping to {site} failed."
+    
+@app.route('/checkDb', strict_slashes=False)
+def checkDb():
+    response = checkDbAvailability()
+    if response:
+        return "Database is accessible!"
+    else:
+        return "Database cannot be reached!"
 
 # <-------------------- ACCOUNT-BASED LOGIN ROUTE --------------------->
 @app.route('/wifidog/login/', methods=['GET', 'POST'], strict_slashes=False)
@@ -134,10 +153,13 @@ def login():
         account_status =  checkAccountStatus(account_number)
 
         if account_status == "NOT FOUND":
-            return render_template('logout.html', message=f"Account {account_number} not found. Please login with a valid credentials to continue.", hideReturnToHome=True)
+            return render_template('logout.html', message=f"Account {account_number} not found. Please login with valid credentials to continue.", hideReturnToHome=True)
         
-        if package == PKG_PAID and account_status == "NEW":
-            return render_template('logout.html', message="New accounts are not eligible for this package. Please upgrade your status to continue.", hideReturnToHome=True)
+        if package == PKG_PAID:
+            if "NEW" in account_status.upper():
+                return render_template('logout.html', message="New accounts are not eligible for this package. Please upgrade your status to continue.", hideReturnToHome=True)
+            if "ONHOLD" in account_status.upper():
+                return render_template('logout.html', message="Onhold accounts are not eligible for this package. Please settle your account to continue.", hideReturnToHome=True)
                 
         trans.account_Number = account_number # update acc_id 
         db.session.commit()
@@ -287,13 +309,14 @@ def login():
         db.session.commit()
         app.logger.info('client details captured')
 
+        # disable this for starndard login
         if KEYCLOAK_SSID in session['ssid']:
-            return redirect(url_for('keycloak'))
-            # return redirect(url_for('keycloaksite'))
+            return redirect(url_for('keycloak')) # ok, tested
+            # return redirect(url_for('keycloaksite')) # requires whitelisting, untested
         
         # Fetch recent logins by calling function
-        login_history = get_recent_logins(account_number)
-        return render_template('index.html', login_history=login_history)
+        # login_history = get_recent_logins(account_number)
+        return render_template('index.html')
         # return render_template('index.html')
         
 
@@ -739,7 +762,8 @@ def keycloaksite():
 
 @app.route('/keycloak/', methods=['GET', 'POST'])
 def keycloak(): 
-    app.logger.info(f'{str(request.remote_addr)} accessed /ping with the url: {request.url}')
+    app.logger.info(f"{str(request.remote_addr)} accessed /ping with the url: {request.url}")
+    app.logger.info(f"device user agent {session['device']}")
 
     user_agent = parse(session['device'])
     device = f"{user_agent.os.family} / {user_agent.device.family}"
@@ -767,6 +791,7 @@ def keycloak():
         }
 
         try:
+            app.logger.info(f'Payload sent to Keycloak: {payload}')
             response = requests.post(TOKEN_URL, data=payload)
             token_data = response.json()
             app.logger.info(jsonify({"response body": token_data}))
