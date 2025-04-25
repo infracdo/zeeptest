@@ -83,7 +83,7 @@
           {% for login in login_history %}
           <div class="login-entry">
             <p>
-              <strong>{{ login.username }}</strong> • {{ login.mac_address }} • {{ login.ip_address }}<br>
+              <strong>{{ login.username }}</strong> • {{ login.ip_address }} • {{ login.mac_address }}<br>
               Last active
               {% if login.time_ago == "just now" %}
                 <span style="color: green; font-weight: bold;">{{ login.time_ago }}</span>

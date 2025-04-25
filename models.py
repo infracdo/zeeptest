@@ -30,15 +30,56 @@ class BaseModel(db.Model):
         }
     
 
+class HiveClient(BaseModel, db.Model):
+    """Model for the hive_clients table"""
+    __bind_key__ = 'mysql'
+    __tablename__ = 'hive_clients'
+
+    id = db.Column(db.BigInteger, primary_key=True, nullable=False)
+    account_no = db.Column(db.String)
+    backend = db.Column(db.String)
+    client_name = db.Column(db.String)
+    ip_assigned = db.Column(db.String, unique=True)
+    olt_interface = db.Column(db.String)
+    olt_ip = db.Column(db.String)
+    olt_downstream = db.Column(db.String)
+    olt_upstream = db.Column(db.String)
+    subscription_name = db.Column(db.String)
+    modem_mac_address = db.Column(db.String)
+    onu_serial_number = db.Column(db.String)
+    package_type = db.Column(db.String)
+    area_id_site = db.Column(db.Integer)
+    ssid_name = db.Column(db.String)
+    status = db.Column(db.String)
+
+    def __init__(self, **kwargs):
+        self.subscriber_id = kwargs.get('id')
+        self.account_Number = kwargs.get('account_no')
+        self.bucket_id = kwargs.get('backend')
+        self.ip_assigned = kwargs.get('client_name')
+        self.subscription_name = kwargs.get('ip_assigned')
+        self.modem_mac_address = kwargs.get('olt_interface')
+        self.onu_serial_number = kwargs.get('olt_ip')
+        self.package_type = kwargs.get('olt_downstream')
+        self.package_id = kwargs.get('olt_upstream')
+        self.provision_type = kwargs.get('subscription_name')
+        self.area_id = kwargs.get('modem_mac_address')
+        self.subscriber_Name = kwargs.get('onu_serial_number')
+        self.subscriber_status = kwargs.get('package_type')
+        self.olt_ip = kwargs.get('area_id_site')
+        self.olt_downstream = kwargs.get('ssid_name')
+        self.olt_upstream = kwargs.get('status')
+
+
 class Subscriber(BaseModel, db.Model):
-    """Model for the account table"""
+    """Model for the new_subscriber table"""
     __bind_key__ = 'mysql'
     __tablename__ = 'new_subscriber'
 
-    subscriber_id = db.Column(db.BigInteger, primary_key=True)
-    account_Number = db.Column(db.String)
+    subscriber_id = db.Column(db.BigInteger, primary_key=True, nullable=False)
+    account_Number = db.Column(db.String, unique=True, nullable=False)
     bucket_id = db.Column(db.String)
-    ip_assigned = db.Column(db.String)
+    ip_assigned = db.Column(db.String, unique=True)
     subscription_name = db.Column(db.String)
     modem_mac_address = db.Column(db.String)
     onu_serial_number = db.Column(db.String)
