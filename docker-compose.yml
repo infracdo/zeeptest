@@ -1,8 +1,22 @@
 version: '3.8'
 
 services:
+#  nginx:
+#    image: nginx:latest
+#    container_name: nginx-reverse-proxy
+#    restart: always
+#    ports:
+#      - "8081:80"
+#      - "443:443"
+#    volumes:
+#      - ./nginx/conf.d:/etc/nginx/conf.d
+#      - /letsencrypt/live/apolloglobal.net/:/etc/nginx/ssl
+#    depends_on:
+#      - flask_app
+
   flask_app:
     container_name: zeep
+    restart: always
     build:
       context: .
       dockerfile: Dockerfile
