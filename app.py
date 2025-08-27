@@ -47,6 +47,7 @@ DEFAULT_URL = os.environ.get("DEFAULT_URL")
 
 KEYCLOAK_SSID = os.environ.get("KEYCLOAK_SSID")
 DOWNLOAD_APK_URL = os.environ.get("DOWNLOAD_APK_URL")
+DOWNLOAD_APK_DIR = os.environ.get("DOWNLOAD_APK_DIR")
 
 PKG_FREE = os.environ.get("PKG_FREE")
 PKG_PAID = os.environ.get("PKG_PAID")
@@ -317,7 +318,7 @@ def login():
         
         # Fetch recent logins by calling function
         # login_history = get_recent_logins(account_number)
-        return render_template('download.html', download_url=DOWNLOAD_APK_URL)
+        return render_template('download.html', download_url=DOWNLOAD_APK_DIR)
         # return render_template('index.html')
         # return render_template('index.html')
         
