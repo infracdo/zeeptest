@@ -748,7 +748,7 @@ def portal():
 
 # <-------------------- DOWNLOAD ROUTE --------------------->
 @app.route('/download/')
-def keycloak(): 
+def download(): 
     app.logger.info(f"{str(request.remote_addr)} accessed /ping with the url: {request.url}")
     app.logger.info(f"device user agent {session['device']}")
 
@@ -757,9 +757,6 @@ def keycloak():
     ip_address=session['ip']
 
     app.logger.info(f'{device} - {ip_address}')
-
-    current_time = datetime.datetime.now(timezone)
-    current_date = current_time.strftime('%Y-%m-%d %H:%M:%S.%f %z')
     
     return render_template('download.html', download_url=DOWNLOAD_APK_DIR)
 
