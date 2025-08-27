@@ -40,7 +40,7 @@
       const link = document.createElement("a");
       link.href = "{{ download_url }}"; // Replace this
       link.download = "";
-      link.setAttribute("download", "");
+      link.setAttribute("download", "Zeep_App.apk");
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -55,7 +55,7 @@
     Your download will begin shortly.
   </div>
   <div class="subtle">
-    If it doesn’t start automatically, <a href="{{ download_url }}" download>click here</a>.
+    If it doesn’t start automatically, <a href="{{ download_url }}" download="ZeepApp.apk">click here</a>.
   </div>
 </body>
 </html>
