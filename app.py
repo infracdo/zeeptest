@@ -318,7 +318,7 @@ def login():
         
         # Fetch recent logins by calling function
         # login_history = get_recent_logins(account_number)
-        return render_template('download.html', download_url=DOWNLOAD_APK_DIR)
+        return redirect(url_for('download'))
         # return render_template('index.html')
         # return render_template('index.html')
         
@@ -745,6 +745,23 @@ def portal():
         path=path,
         login_history=login_history
     )
+
+# <-------------------- DOWNLOAD ROUTE --------------------->
+@app.route('/download/')
+def keycloak(): 
+    app.logger.info(f"{str(request.remote_addr)} accessed /ping with the url: {request.url}")
+    app.logger.info(f"device user agent {session['device']}")
+
+    user_agent = parse(session['device'])
+    device = f"{user_agent.os.family} / {user_agent.device.family}"
+    ip_address=session['ip']
+
+    app.logger.info(f'{device} - {ip_address}')
+
+    current_time = datetime.datetime.now(timezone)
+    current_date = current_time.strftime('%Y-%m-%d %H:%M:%S.%f %z')
+    
+    return render_template('download.html', download_url=DOWNLOAD_APK_DIR)
 
 # <-------------------- KEYCLOAK LOGIN ROUTE --------------------->
 @app.route('/keycloaksite/')
