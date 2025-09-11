@@ -39,7 +39,7 @@
     window.onload = function () {
       setTimeout(() => {
         const link = document.createElement("a");
-        link.href = "intent://details?id=com.arclemwifi.captiveportal.arclemwifi#Intent;scheme=market;package=com.arclemwifi.captiveportal.arclemwifi;end;";
+        link.href = "{{ download_url }}";
         link.target = "_blank";
         link.rel = "noopener noreferrer";
         document.body.appendChild(link);

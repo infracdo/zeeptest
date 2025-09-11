@@ -46,6 +46,7 @@ PORTAL_URL_ROOT = os.environ.get("PORTAL_URL_ROOT")
 DEFAULT_URL = os.environ.get("DEFAULT_URL")
 
 KEYCLOAK_SSID = os.environ.get("KEYCLOAK_SSID")
+PWA_URL = os.environ.get("PWA_URL")
 GOOGLE_APK_DIR = os.environ.get("GOOGLE_APK_DIR")
 DOWNLOAD_APK_URL = os.environ.get("DOWNLOAD_APK_URL")
 DOWNLOAD_APK_DIR = os.environ.get("DOWNLOAD_APK_DIR")
@@ -319,10 +320,7 @@ def login():
         
         # Fetch recent logins by calling function
         # login_history = get_recent_logins(account_number)
-        if 'android' in session['device'].lower():
-            return redirect(url_for('download_route'))
-        else:
-            return redirect(url_for('pwa_route'))
+        return redirect(url_for('download_route'))
         # return render_template('index.html')
         
 
@@ -761,7 +759,10 @@ def download_route():
 
     app.logger.info(f'{device} - {ip_address}')
     
-    return render_template('download.html', download_url=GOOGLE_APK_DIR)
+    if 'android' in session['device'].lower():
+        return render_template('download.html', download_url=GOOGLE_APK_DIR)
+    else:
+        return render_template('download.html', download_url=PWA_URL)
 
 # <-------------------- PWA REDIRECT ROUTE --------------------->
 @app.route('/pwa/')
@@ -774,10 +775,9 @@ def pwa_route():
     ip_address=session['ip']
 
     app.logger.info(f'{device} - {ip_address}')
-    pwa_url = os.environ.get("PWA_URL")
-    app.logger.info(f'accessing url {pwa_url}')
+    app.logger.info(f'accessing url {PWA_URL}')
 
-    return redirect(pwa_url)
+    return redirect(PWA_URL)
 
 # <-------------------- KEYCLOAK LOGIN ROUTE --------------------->
 @app.route('/keycloaksite/')
