@@ -46,6 +46,7 @@ PORTAL_URL_ROOT = os.environ.get("PORTAL_URL_ROOT")
 DEFAULT_URL = os.environ.get("DEFAULT_URL")
 
 KEYCLOAK_SSID = os.environ.get("KEYCLOAK_SSID")
+GOOGLE_APK_DIR = os.environ.get("GOOGLE_APK_DIR")
 DOWNLOAD_APK_URL = os.environ.get("DOWNLOAD_APK_URL")
 DOWNLOAD_APK_DIR = os.environ.get("DOWNLOAD_APK_DIR")
 
@@ -760,7 +761,7 @@ def download_route():
 
     app.logger.info(f'{device} - {ip_address}')
     
-    return render_template('download.html', download_url=DOWNLOAD_APK_DIR)
+    return render_template('download.html', download_url=GOOGLE_APK_DIR)
 
 # <-------------------- PWA REDIRECT ROUTE --------------------->
 @app.route('/pwa/')
@@ -774,6 +775,7 @@ def pwa_route():
 
     app.logger.info(f'{device} - {ip_address}')
     pwa_url = os.environ.get("PWA_URL")
+    app.logger.info(f'accessing url {pwa_url}')
 
     return redirect(pwa_url)
 
