@@ -319,9 +319,9 @@ def login():
         # Fetch recent logins by calling function
         # login_history = get_recent_logins(account_number)
         if 'android' in session['device'].lower():
-            return redirect(url_for('download'))
+            return redirect(url_for('download_route'))
         else:
-            return redirect(url_for('pwa'))
+            return redirect(url_for('pwa_route'))
         # return render_template('index.html')
         
 
