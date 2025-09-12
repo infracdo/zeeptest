@@ -763,7 +763,7 @@ def download_route():
     if 'android' in session['device'].lower():
         match = re.search(r'android\s+(\d+);', session['device'], re.IGNORECASE)
         if match and int(match.group(1)) >= 12: # if android version is 12 or higher
-            return render_template('download.html', download_url=DOWNLOAD_APK_DIR)
+            return render_template('download.html', download_url=GOOGLE_APK_DIR)
         
     return render_template('download.html', download_url=PWA_URL)
 
