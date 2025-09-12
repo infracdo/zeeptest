@@ -40,7 +40,7 @@
       setTimeout(() => {
         const link = document.createElement("a");
         link.href = "{{ download_url }}";
-        link.target = "_blank";
+        link.target = "{{ target }}";
         link.rel = "noopener noreferrer";
         document.body.appendChild(link);
         link.click();
@@ -56,7 +56,7 @@
     You will be redirected shortly.
   </div>
   <div class="subtle">
-    If redirect doesn’t start automatically, <a href="{{ download_url }}" target="_blank" rel="noopener noreferrer">click here</a>.
+    If redirect doesn’t start automatically, <a href="{{ download_url }}" target="{{ target }}" rel="noopener noreferrer">click here</a>.
   </div>
 </body>
 </html>
