@@ -7,6 +7,7 @@ from models import db, Transaction, AuthLog, ClientSession, Subscriber, HiveClie
 from tzlocal import get_localzone
 from dateutil import parser
 import pytz
+import re
 from api import api_blueprint
 from user_agents import parse
 from dotenv import load_dotenv
@@ -760,9 +761,11 @@ def download_route():
     app.logger.info(f'{device} - {ip_address}')
     
     if 'android' in session['device'].lower():
-        return render_template('download.html', download_url=GOOGLE_APK_DIR)
-    else:
-        return render_template('download.html', download_url=PWA_URL)
+        match = re.search(r'android\s+(\d+);', session['device'], re.IGNORECASE)
+        if match and int(match.group(1)) >= 12: # if android version is 12 or higher
+            return render_template('download.html', download_url=DOWNLOAD_APK_DIR)
+        
+    return render_template('download.html', download_url=PWA_URL)
 
 # <-------------------- PWA REDIRECT ROUTE --------------------->
 @app.route('/pwa/')
