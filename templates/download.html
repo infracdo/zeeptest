@@ -36,11 +36,28 @@
     }
   </style>
   <script>
+    function getAndroidVersion(ua) {
+      ua = ua || navigator.userAgent;
+      let match = ua.match(/android\s+(\d+(\.\d+)?);/i);
+      return match ? parseFloat(match[1]) : null;
+    }
     window.onload = function () {
+      const androidVersion = getAndroidVersion();
+      console.log(`Detected Android version: ${androidVersion}`);
+
+      let downloadUrl;
+      if (androidVersion && androidVersion >= 12) {
+        downloadUrl = "{{ playstore_url }}";
+      } else {
+        downloadUrl = "{{ pwa_url }}";
+      }
+
+      document.getElementById("manual-download-link").href = downloadUrl;
+
       setTimeout(() => {
         const link = document.createElement("a");
-        link.href = "{{ download_url }}";
-        link.target = "{{ target }}";
+        link.href = downloadUrl;
+        link.target = "_blank";
         link.rel = "noopener noreferrer";
         document.body.appendChild(link);
         link.click();
@@ -53,10 +70,10 @@
   <img src="/static/images/zeep.png" alt="Zeep Logo" class="logo" />
 
   <div class="message">
-    You will be redirected shortly.
+    Your download will begin shortly.
   </div>
   <div class="subtle">
-    If redirect doesn’t start automatically, <a href="{{ download_url }}" target="{{ target }}" rel="noopener noreferrer">click here</a>.
+    If it doesn’t start automatically, <a id="manual-download-link" href="#" target="_blank" rel="noopener noreferrer">click here</a>.
   </div>
 </body>
 </html>

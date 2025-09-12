@@ -760,12 +760,7 @@ def download_route():
 
     app.logger.info(f'{device} - {ip_address}')
     
-    if 'android' in session['device'].lower():
-        match = re.search(r'android\s+(\d+);', session['device'], re.IGNORECASE)
-        if match and int(match.group(1)) >= 12: # if android version is 12 or higher
-            return render_template('download.html', download_url=GOOGLE_APK_DIR, target='_self')
-        
-    return render_template('download.html', download_url=PWA_URL, target='_blank')
+    return render_template('download.html', playstore_url=GOOGLE_APK_DIR, pwa_url=PWA_URL)
 
 # <-------------------- PWA REDIRECT ROUTE --------------------->
 @app.route('/pwa/')
