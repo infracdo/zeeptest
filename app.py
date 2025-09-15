@@ -768,7 +768,8 @@ def download_route():
 
     app.logger.info(f'{device} - {ip_address}')
 
-    return render_template('download.html', url=GOOGLE_APK_DIR, pwa=False)
+    return redirect(GOOGLE_APK_DIR)
+    # return render_template('download.html', url=GOOGLE_APK_DIR, pwa=False)
 
 
 # <-------------------- PWA REDIRECT ROUTE --------------------->
@@ -784,7 +785,8 @@ def pwa_route():
     app.logger.info(f'{device} - {ip_address}')
     app.logger.info(f'accessing url {PWA_URL}')
 
-    return render_template('download.html', url=PWA_URL, pwa=True)
+    return redirect(PWA_URL)
+    # return render_template('download.html', url=PWA_URL, pwa=True)
 
 
 # <-------------------- KEYCLOAK LOGIN ROUTE --------------------->

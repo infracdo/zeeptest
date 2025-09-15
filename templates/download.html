@@ -38,8 +38,6 @@
   <script>
     window.onload = function () {
       const downloadUrl = "{{ url }}";
-      const manualLink = document.getElementById("manual-download-link");
-      manualLink.href = downloadUrl;
 
       setTimeout(() => {
         const link = document.createElement("a");
@@ -60,7 +58,7 @@
     {{ "Your Zeep web app is launching…" if pwa else "Redirecting you to the Google Play Store…" }}
   </div>
   <div class="subtle">
-    If the page doesn’t load automatically, <a id="manual-download-link" href="#" target="_blank" rel="noopener noreferrer">click here to continue</a>.
+    If the page doesn’t load automatically, <a id="manual-download-link" href="{{ url }}" target="_blank" rel="noopener noreferrer">click here to continue</a>.
   </div>
 </body>
 </html>
