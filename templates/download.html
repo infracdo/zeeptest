@@ -38,15 +38,18 @@
   <script>
     function getAndroidVersion(ua) {
       ua = ua || navigator.userAgent;
-      let match = ua.match(/android\s+(\d+(\.\d+)?);/i);
+      let match = ua.match(/android\s+(\d+(\.\d+)?)/i);
       return match ? parseFloat(match[1]) : null;
     }
-    window.onload = function () {
-      const androidVersion = getAndroidVersion();
-      console.log(`Detected Android version: ${androidVersion}`);
 
+    function getQueryParam(name) {
+      const params = new URLSearchParams(window.location.search);
+      return params.get(name);
+    }
+
+    function redirectToDownload(version) {
       let downloadUrl;
-      if (androidVersion && androidVersion >= 12) {
+      if (version && parseFloat(version) >= 12) {
         downloadUrl = "{{ playstore_url }}";
       } else {
         downloadUrl = "{{ pwa_url }}";
@@ -63,6 +66,22 @@
         link.click();
         document.body.removeChild(link);
       }, 500);
+    }
+    
+    window.onload = function () {
+      const urlVersion = getQueryParam("version");
+
+      if (urlVersion) {
+        console.log(`Version from URL: ${urlVersion}`);
+        redirectToDownload(urlVersion);
+      } else {
+        const androidVersion = getAndroidVersion();
+        console.log(`Detected Android version: ${androidVersion}`);
+
+        const newUrl = new URL(window.location.href);
+        newUrl.searchParams.set("version", androidVersion || "0");
+        window.location.replace(newUrl.toString());
+      }
     };
   </script>
 </head>
