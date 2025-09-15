@@ -46,8 +46,8 @@ PORTAL_URL_ROOT = os.environ.get("PORTAL_URL_ROOT")
 DEFAULT_URL = os.environ.get("DEFAULT_URL")
 
 KEYCLOAK_SSID = os.environ.get("KEYCLOAK_SSID")
-DOWNLOAD_APK_URL = os.environ.get("DOWNLOAD_APK_URL")
 DOWNLOAD_APK_DIR = os.environ.get("DOWNLOAD_APK_DIR")
+PWA_URL = os.environ.get("PWA_URL")
 
 PKG_FREE = os.environ.get("PKG_FREE")
 PKG_PAID = os.environ.get("PKG_PAID")
@@ -310,16 +310,20 @@ def login():
         db.session.add(log)
         db.session.commit()
         app.logger.info('client details captured')
-
-        # disable this for starndard login
-        if KEYCLOAK_SSID in session['ssid']:
-            return redirect(url_for('keycloak')) # ok, tested
-            # return redirect(url_for('keycloaksite')) # requires whitelisting, untested
         
         # Fetch recent logins by calling function
         # login_history = get_recent_logins(account_number)
-        return redirect(url_for('download'))
-        # return render_template('index.html')
+
+        # disable this for standard login
+        if KEYCLOAK_SSID in session['ssid']:
+            return redirect(url_for('keycloak')) # ok, tested
+            # return redirect(url_for('keycloaksite')) # requires whitelisting, untested
+
+        if 'android' in session['device'].lower():
+            return redirect(url_for('apk_route'))
+
+        app.logger.info(f"device {session['mac']} doesnt meet android app requirements - redirecting to pwa link")
+        return redirect(url_for('pwa_route'))
         # return render_template('index.html')
         
 
@@ -746,10 +750,11 @@ def portal():
         login_history=login_history
     )
 
-# <-------------------- DOWNLOAD ROUTE --------------------->
-@app.route('/download/')
-def download(): 
-    app.logger.info(f"{str(request.remote_addr)} accessed /ping with the url: {request.url}")
+
+# <-------------------- APK REDIRECT ROUTE --------------------->
+@app.route('/apk/')
+def apk_route(): 
+    app.logger.info(f"{str(request.remote_addr)} accessed /apk with the url: {request.url}")
     app.logger.info(f"device user agent {session['device']}")
 
     user_agent = parse(session['device'])
@@ -757,8 +762,25 @@ def download():
     ip_address=session['ip']
 
     app.logger.info(f'{device} - {ip_address}')
-    
-    return render_template('download.html', download_url=DOWNLOAD_APK_DIR)
+
+    # return redirect(DOWNLOAD_APK_DIR)
+    return render_template('download.html', url=DOWNLOAD_APK_DIR, pwa=False)
+
+
+# <-------------------- PWA REDIRECT ROUTE --------------------->
+@app.route('/pwa/')
+def pwa_route(): 
+    app.logger.info(f"{str(request.remote_addr)} accessed /pwa with the url: {request.url}")
+    app.logger.info(f"device user agent {session['device']}")
+
+    user_agent = parse(session['device'])
+    device = f"{user_agent.os.family} / {user_agent.device.family}"
+    ip_address=session['ip']
+
+    app.logger.info(f'{device} - {ip_address}')
+
+    # return redirect(PWA_URL)
+    return render_template('download.html', url=PWA_URL, pwa=True)
 
 # <-------------------- KEYCLOAK LOGIN ROUTE --------------------->
 @app.route('/keycloaksite/')
