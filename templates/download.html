@@ -42,7 +42,7 @@
       setTimeout(() => {
         const link = document.createElement("a");
         link.href = downloadUrl;
-        // link.target = "_blank";
+        link.target = "_blank";
         link.rel = "noopener noreferrer";
         document.body.appendChild(link);
         link.click();
@@ -78,7 +78,7 @@
     {{ "Your Zeep Web App is launching…" if pwa else "Redirecting you to the Google Play Store…" }}
   </div>
   <div class="subtle">
-    If the page doesn’t load automatically, <a id="manual-download-link" href="{{ url }}" rel="noopener noreferrer">click here to continue</a>.
+    If the page doesn’t load automatically, <a id="manual-download-link" href="{{ url }}" target="_blank" rel="noopener noreferrer">click here to continue</a>.
   </div>
 </body>
 </html>
