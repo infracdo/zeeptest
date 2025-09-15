@@ -313,15 +313,23 @@ def login():
         db.session.add(log)
         db.session.commit()
         app.logger.info('client details captured')
+        
+        # Fetch recent logins by calling function
+        # login_history = get_recent_logins(account_number)
 
         # disable this for starndard login
         if KEYCLOAK_SSID in session['ssid']:
             return redirect(url_for('keycloak')) # ok, tested
             # return redirect(url_for('keycloaksite')) # requires whitelisting, untested
-        
-        # Fetch recent logins by calling function
-        # login_history = get_recent_logins(account_number)
-        return redirect(url_for('download_route'))
+            
+        if 'android' in session['device'].lower():
+            match = re.search(r'android\s+(\d+)', session['device'], re.IGNORECASE)
+            if match and int(match.group(1)) >= 12:
+                app.logger.info(f"device {session['mac']} meets android app requirements. redirecting to playstore link")
+                return redirect(url_for('download_route'))
+
+        app.logger.info(f"device {session['mac']} doesnt meet android app requirements - redirecting to pwa link")
+        return redirect(url_for('pwa_route'))
         # return render_template('index.html')
         
 
@@ -759,8 +767,9 @@ def download_route():
     ip_address=session['ip']
 
     app.logger.info(f'{device} - {ip_address}')
-    
-    return render_template('download.html', playstore_url=GOOGLE_APK_DIR, pwa_url=PWA_URL)
+
+    return render_template('download.html', url=GOOGLE_APK_DIR, pwa=False)
+
 
 # <-------------------- PWA REDIRECT ROUTE --------------------->
 @app.route('/pwa/')
@@ -775,7 +784,8 @@ def pwa_route():
     app.logger.info(f'{device} - {ip_address}')
     app.logger.info(f'accessing url {PWA_URL}')
 
-    return redirect(PWA_URL)
+    return render_template('download.html', url=PWA_URL, pwa=True)
+
 
 # <-------------------- KEYCLOAK LOGIN ROUTE --------------------->
 @app.route('/keycloaksite/')

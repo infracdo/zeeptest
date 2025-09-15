@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Downloading Your File</title>
+  <title>{{ "Launching Zeep Web App" if pwa else "Opening Google Play Store" }}</title>
   <style>
     body {
       margin: 0;
@@ -25,7 +25,7 @@
 
     .message {
       font-size: 1.25rem;
-      font-weight: 500;
+      font-weight: 600;
       max-width: 400px;
     }
 
@@ -36,26 +36,10 @@
     }
   </style>
   <script>
-    function getAndroidVersion(ua) {
-      ua = ua || navigator.userAgent;
-      let match = ua.match(/android\s+(\d+(\.\d+)?)/i);
-      return match ? parseFloat(match[1]) : null;
-    }
-
-    function getQueryParam(name) {
-      const params = new URLSearchParams(window.location.search);
-      return params.get(name);
-    }
-
-    function redirectToDownload(version) {
-      let downloadUrl;
-      if (version && parseFloat(version) >= 12) {
-        downloadUrl = "{{ playstore_url }}";
-      } else {
-        downloadUrl = "{{ pwa_url }}";
-      }
-
-      document.getElementById("manual-download-link").href = downloadUrl;
+    window.onload = function () {
+      const downloadUrl = "{{ url }}";
+      const manualLink = document.getElementById("manual-download-link");
+      manualLink.href = downloadUrl;
 
       setTimeout(() => {
         const link = document.createElement("a");
@@ -66,22 +50,6 @@
         link.click();
         document.body.removeChild(link);
       }, 500);
-    }
-    
-    window.onload = function () {
-      const urlVersion = getQueryParam("version");
-
-      if (urlVersion) {
-        console.log(`Version from URL: ${urlVersion}`);
-        redirectToDownload(urlVersion);
-      } else {
-        const androidVersion = getAndroidVersion();
-        console.log(`Detected Android version: ${androidVersion}`);
-
-        const newUrl = new URL(window.location.href);
-        newUrl.searchParams.set("version", androidVersion || "0");
-        window.location.replace(newUrl.toString());
-      }
     };
   </script>
 </head>
@@ -89,10 +57,10 @@
   <img src="/static/images/zeep.png" alt="Zeep Logo" class="logo" />
 
   <div class="message">
-    Your download will begin shortly.
+    {{ "Your Zeep web app is launching…" if pwa else "Redirecting you to the Google Play Store…" }}
   </div>
   <div class="subtle">
-    If it doesn’t start automatically, <a id="manual-download-link" href="#" target="_blank" rel="noopener noreferrer">click here</a>.
+    If the page doesn’t load automatically, <a id="manual-download-link" href="#" target="_blank" rel="noopener noreferrer">click here to continue</a>.
   </div>
 </body>
 </html>
