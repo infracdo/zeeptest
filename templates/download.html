@@ -48,6 +48,26 @@
         link.click();
         document.body.removeChild(link);
       }, 500);
+
+      async function showDeviceInfo() {
+        let deviceInfo = "";
+
+        if (navigator.userAgentData) {
+          try {
+            const data = await navigator.userAgentData.getHighEntropyValues(['platform', 'platformVersion']);
+            deviceInfo = `Platform: ${data.platform}\nVersion: ${data.platformVersion}`;
+          } catch (e) {
+            deviceInfo = "Unable to retrieve device info.";
+            console.error("userAgentData error:", e);
+          }
+        } else {
+          deviceInfo = `User Agent: ${navigator.userAgent}`;
+        }
+
+      alert("Device info:\n\n" + deviceInfo);
+      }
+
+      showDeviceInfo();
     };
   </script>
 </head>
@@ -55,7 +75,7 @@
   <img src="/static/images/zeep.png" alt="Zeep Logo" class="logo" />
 
   <div class="message">
-    {{ "Your Zeep web app is launching…" if pwa else "Redirecting you to the Google Play Store…" }}
+    {{ "Your Zeep Web App is launching…" if pwa else "Redirecting you to the Google Play Store…" }}
   </div>
   <div class="subtle">
     If the page doesn’t load automatically, <a id="manual-download-link" href="{{ url }}" target="_blank" rel="noopener noreferrer">click here to continue</a>.
