@@ -323,11 +323,10 @@ def login():
             # return redirect(url_for('keycloaksite')) # requires whitelisting, untested
             
         if 'android' in session['device'].lower():
-            match = re.search(r'android\s+(\d+)', session['device'], re.IGNORECASE)
-            if match and int(match.group(1)) >= 12:
-                app.logger.info(f"device {session['mac']} meets android app requirements. redirecting to playstore link")
-                download_url = url_for('download_route', _external=True)
-                return render_template('open_external.html', download_url=download_url)
+            # match = re.search(r'android\s+(\d+)', session['device'], re.IGNORECASE)
+            # if match:
+            #     app.logger.info(f"device {session['mac']} meets android app requirements. redirecting to playstore link")
+            return redirect(url_for('playstore_route'))
 
         app.logger.info(f"device {session['mac']} doesnt meet android app requirements - redirecting to pwa link")
         return redirect(url_for('pwa_route'))
@@ -757,10 +756,10 @@ def portal():
         login_history=login_history
     )
 
-# <-------------------- DOWNLOAD ROUTE --------------------->
-@app.route('/download/')
-def download_route(): 
-    app.logger.info(f"{str(request.remote_addr)} accessed /download with the url: {request.url}")
+# <-------------------- PLAYSTORE REDIRECT ROUTE --------------------->
+@app.route('/playstore/')
+def playstore_route(): 
+    app.logger.info(f"{str(request.remote_addr)} accessed /playstore with the url: {request.url}")
     app.logger.info(f"device user agent {session['device']}")
 
     user_agent = parse(session['device'])
