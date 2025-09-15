@@ -326,7 +326,8 @@ def login():
             match = re.search(r'android\s+(\d+)', session['device'], re.IGNORECASE)
             if match and int(match.group(1)) >= 12:
                 app.logger.info(f"device {session['mac']} meets android app requirements. redirecting to playstore link")
-                return redirect(url_for('download_route'))
+                download_url = url_for('download_route', _external=True)
+                return render_template('open_external.html', download_url=download_url)
 
         app.logger.info(f"device {session['mac']} doesnt meet android app requirements - redirecting to pwa link")
         return redirect(url_for('pwa_route'))
