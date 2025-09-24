@@ -47,10 +47,9 @@ PORTAL_URL_ROOT = os.environ.get("PORTAL_URL_ROOT")
 DEFAULT_URL = os.environ.get("DEFAULT_URL")
 
 KEYCLOAK_SSID = os.environ.get("KEYCLOAK_SSID")
-PWA_URL = os.environ.get("PWA_URL")
-GOOGLE_APK_DIR = os.environ.get("GOOGLE_APK_DIR")
-DOWNLOAD_APK_URL = os.environ.get("DOWNLOAD_APK_URL")
+
 DOWNLOAD_APK_DIR = os.environ.get("DOWNLOAD_APK_DIR")
+PWA_URL = os.environ.get("PWA_URL")
 
 PKG_FREE = os.environ.get("PKG_FREE")
 PKG_PAID = os.environ.get("PKG_PAID")
@@ -317,16 +316,13 @@ def login():
         # Fetch recent logins by calling function
         # login_history = get_recent_logins(account_number)
 
-        # disable this for starndard login
+        # disable this for standard login
         if KEYCLOAK_SSID in session['ssid']:
             return redirect(url_for('keycloak')) # ok, tested
             # return redirect(url_for('keycloaksite')) # requires whitelisting, untested
-            
+
         if 'android' in session['device'].lower():
-            # match = re.search(r'android\s+(\d+)', session['device'], re.IGNORECASE)
-            # if match:
-            #     app.logger.info(f"device {session['mac']} meets android app requirements. redirecting to playstore link")
-            return redirect(url_for('playstore_route'))
+            return redirect(url_for('apk_route'))
 
         app.logger.info(f"device {session['mac']} doesnt meet android app requirements - redirecting to pwa link")
         return redirect(url_for('pwa_route'))
@@ -756,10 +752,11 @@ def portal():
         login_history=login_history
     )
 
-# <-------------------- PLAYSTORE REDIRECT ROUTE --------------------->
-@app.route('/playstore/')
-def playstore_route(): 
-    app.logger.info(f"{str(request.remote_addr)} accessed /playstore with the url: {request.url}")
+# <-------------------- APK REDIRECT ROUTE --------------------->
+@app.route('/apk/')
+def apk_route(): 
+    app.logger.info(f"{str(request.remote_addr)} accessed /apk with the url: {request.url}")
+
     app.logger.info(f"device user agent {session['device']}")
 
     user_agent = parse(session['device'])
@@ -768,9 +765,9 @@ def playstore_route():
 
     app.logger.info(f'{device} - {ip_address}')
 
-    # return redirect(GOOGLE_APK_DIR)
-    return render_template('download.html', url=GOOGLE_APK_DIR, pwa=False)
 
+    # return redirect(DOWNLOAD_APK_DIR)
+    return render_template('download.html', url=DOWNLOAD_APK_DIR, pwa=False)
 
 # <-------------------- PWA REDIRECT ROUTE --------------------->
 @app.route('/pwa/')
@@ -783,7 +780,6 @@ def pwa_route():
     ip_address=session['ip']
 
     app.logger.info(f'{device} - {ip_address}')
-    app.logger.info(f'accessing url {PWA_URL}')
 
     # return redirect(PWA_URL)
     return render_template('download.html', url=PWA_URL, pwa=True)
