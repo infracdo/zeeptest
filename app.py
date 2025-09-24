@@ -7,6 +7,7 @@ from models import db, Transaction, AuthLog, ClientSession, Subscriber, HiveClie
 from tzlocal import get_localzone
 from dateutil import parser
 import pytz
+import re
 from api import api_blueprint
 from user_agents import parse
 from dotenv import load_dotenv
@@ -46,6 +47,7 @@ PORTAL_URL_ROOT = os.environ.get("PORTAL_URL_ROOT")
 DEFAULT_URL = os.environ.get("DEFAULT_URL")
 
 KEYCLOAK_SSID = os.environ.get("KEYCLOAK_SSID")
+
 DOWNLOAD_APK_DIR = os.environ.get("DOWNLOAD_APK_DIR")
 PWA_URL = os.environ.get("PWA_URL")
 
@@ -750,11 +752,11 @@ def portal():
         login_history=login_history
     )
 
-
 # <-------------------- APK REDIRECT ROUTE --------------------->
 @app.route('/apk/')
 def apk_route(): 
     app.logger.info(f"{str(request.remote_addr)} accessed /apk with the url: {request.url}")
+
     app.logger.info(f"device user agent {session['device']}")
 
     user_agent = parse(session['device'])
@@ -763,9 +765,9 @@ def apk_route():
 
     app.logger.info(f'{device} - {ip_address}')
 
+
     # return redirect(DOWNLOAD_APK_DIR)
     return render_template('download.html', url=DOWNLOAD_APK_DIR, pwa=False)
-
 
 # <-------------------- PWA REDIRECT ROUTE --------------------->
 @app.route('/pwa/')
@@ -781,6 +783,7 @@ def pwa_route():
 
     # return redirect(PWA_URL)
     return render_template('download.html', url=PWA_URL, pwa=True)
+
 
 # <-------------------- KEYCLOAK LOGIN ROUTE --------------------->
 @app.route('/keycloaksite/')
